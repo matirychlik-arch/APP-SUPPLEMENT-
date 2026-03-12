@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Supplement Price Finder – Znajdź tańszy zamiennik</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+    * { font-family: 'Inter', sans-serif; }
+    .gradient-bg { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%); }
+    .card-glow { box-shadow: 0 0 30px rgba(99, 102, 241, 0.15); }
+    .ingredient-chip { transition: all 0.2s; }
+    .ingredient-chip:hover { transform: translateY(-1px); }
+    .pulse-ring { animation: pulse-ring 2s cubic-bezier(0.455, 0.03, 0.515, 0.955) infinite; }
+    @keyframes pulse-ring {
+      0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(99, 102, 241, 0.7); }
+      70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(99, 102, 241, 0); }
+      100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(99, 102, 241, 0); }
+    }
+    .fade-in { animation: fadeIn 0.5s ease-in; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+    .skeleton { background: linear-gradient(90deg, #1e293b 25%, #334155 50%, #1e293b 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; }
+    @keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+  </style>
+</head>
+<body class="gradient-bg min-h-screen text-white">
+
+  <!-- Header -->
+  <header class="border-b border-white/10 backdrop-blur-sm sticky top-0 z-50 bg-black/20">
+    <div class="max-w-5xl mx-auto px-4 py-4 flex items-center gap-3">
+      <div class="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-xl pulse-ring">💊</div>
+      <div>
+        <h1 class="text-lg font-bold leading-tight">Supplement Price Finder</h1>
+        <p class="text-xs text-slate-400">Znajdź tańsze zamienniki i składowe suplementów</p>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main -->
+  <main class="max-w-5xl mx-auto px-4 py-10">
+
+    <!-- Hero -->
+    <div class="text-center mb-10 fade-in">
+      <h2 class="text-4xl font-extrabold mb-3 bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">
+        Przestań przepłacać za suplementy
+      </h2>
+      <p class="text-slate-300 text-lg max-w-2xl mx-auto">
+        Wklej link do dowolnego suplementu, a nasza AI przeanalizuje skład i znajdzie tańsze zamienniki lub osobne składniki – oszczędzaj nawet <span class="text-green-400 font-bold">70%</span>!
+      </p>
+    </div>
+
+    <!-- Input Card -->
+    <div class="bg-white/5 border border-white/10 rounded-2xl p-6 mb-8 card-glow fade-in">
+      <label class="block text-sm font-medium text-slate-300 mb-2">Link do produktu</label>
+      <div class="flex gap-3">
+        <input
+          id="urlInput"
+          type="url"
+          placeholder="https://iherb.com/pr/... lub https://bodybuilding.com/..."
+          class="flex-1 bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 focus:bg-white/15 transition-all"
+        />
+        <button
+          id="analyzeBtn"
+          onclick="analyze()"
+          class="bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white font-semibold px-6 py-3 rounded-xl transition-all flex items-center gap-2 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <span id="btnIcon">🔍</span>
+          <span id="btnText">Analizuj</span>
+        </button>
+      </div>
+      <p class="text-xs text-slate-500 mt-2">
+        Obsługiwane: iHerb, Bodybuilding.com, Myprotein, Allegro, Amazon i wiele innych
+      </p>
+    </div>
+
+    <!-- Error -->
+    <div id="errorBox" class="hidden bg-red-900/30 border border-red-500/50 rounded-xl p-4 mb-6 text-red-300 fade-in"></div>
+
+    <!-- Loading Skeleton -->
+    <div id="loadingSkeleton" class="hidden space-y-4 fade-in">
+      <div class="skeleton rounded-2xl h-40"></div>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="skeleton rounded-2xl h-64"></div>
+        <div class="skeleton rounded-2xl h-64"></div>
+      </div>
+      <div class="skeleton rounded-2xl h-48"></div>
+      <p class="text-center text-slate-400 text-sm animate-pulse">Analizuję skład z pomocą AI... To może potrwać kilka sekund.</p>
+    </div>
+
+    <!-- Results -->
+    <div id="results" class="hidden space-y-6 fade-in">
+
+      <!-- Product Summary -->
+      <div id="productCard" class="bg-white/5 border border-white/10 rounded-2xl p-6 card-glow">
+        <div class="flex items-start justify-between gap-4 flex-wrap">
+          <div>
+            <div class="flex items-center gap-2 mb-1">
+              <span id="categoryBadge" class="bg-indigo-600/30 text-indigo-300 text-xs font-semibold px-3 py-1 rounded-full"></span>
+            </div>
+            <h3 id="productName" class="text-2xl font-bold"></h3>
+            <p id="productBrand" class="text-slate-400 text-sm mt-1"></p>
+          </div>
+          <div class="text-right">
+            <div id="productPrice" class="text-2xl font-bold text-green-400"></div>
+            <div class="text-xs text-slate-500">cena oryginalna</div>
+          </div>
+        </div>
+        <p id="productSummary" class="text-slate-300 mt-4 leading-relaxed"></p>
+      </div>
+
+      <!-- Ingredients + Key Actives -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+        <!-- Key Active Ingredients -->
+        <div class="bg-white/5 border border-white/10 rounded-2xl p-5">
+          <h4 class="font-semibold text-indigo-400 mb-3 flex items-center gap-2">
+            ⚡ Kluczowe składniki aktywne
+          </h4>
+          <div id="keyIngredients" class="flex flex-wrap gap-2"></div>
+        </div>
+
+        <!-- Full Ingredient List -->
+        <div class="bg-white/5 border border-white/10 rounded-2xl p-5">
+          <h4 class="font-semibold text-indigo-400 mb-3 flex items-center gap-2">
+            📋 Pełny skład
+          </h4>
+          <div id="fullIngredients" class="space-y-2 max-h-56 overflow-y-auto pr-1 scrollbar-thin"></div>
+        </div>
+      </div>
+
+      <!-- Cheaper Alternatives -->
+      <div class="bg-white/5 border border-white/10 rounded-2xl p-5">
+        <h4 class="font-semibold text-emerald-400 mb-4 flex items-center gap-2 text-lg">
+          💰 Tańsze zamienniki
+        </h4>
+        <div id="alternativesList" class="space-y-3"></div>
+      </div>
+
+      <!-- DIY Stack -->
+      <div class="bg-white/5 border border-white/10 rounded-2xl p-5">
+        <h4 class="font-semibold text-amber-400 mb-1 flex items-center gap-2 text-lg">
+          🧪 Kup składniki osobno (DIY Stack)
+        </h4>
+        <p class="text-slate-400 text-sm mb-4">Kup każdy składnik z osobna i płać ułamek oryginalnej ceny</p>
+        <div id="diyStack" class="space-y-3"></div>
+      </div>
+
+      <!-- Recommended Stores -->
+      <div class="bg-white/5 border border-white/10 rounded-2xl p-5">
+        <h4 class="font-semibold text-sky-400 mb-4 flex items-center gap-2 text-lg">
+          🛒 Polecane sklepy
+        </h4>
+        <div id="storesList" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3"></div>
+      </div>
+
+      <!-- Savings & Advice -->
+      <div class="bg-gradient-to-r from-green-900/30 to-emerald-900/30 border border-green-500/30 rounded-2xl p-5">
+        <h4 class="font-semibold text-green-400 mb-2 flex items-center gap-2 text-lg">
+          💡 Potencjalne oszczędności i rada
+        </h4>
+        <p id="savingsPotential" class="text-slate-300 mb-3"></p>
+        <div class="bg-white/5 rounded-xl p-4 border border-white/10">
+          <p class="text-xs text-slate-400 uppercase font-semibold mb-1">Porada eksperta</p>
+          <p id="adviceText" class="text-slate-200"></p>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <footer class="text-center py-8 text-slate-600 text-sm">
+    Powered by Claude AI &middot; Wyniki mają charakter informacyjny &middot; Zawsze konsultuj się z lekarzem
+  </footer>
+
+  <script>
+    const API_BASE = '';
+
+    function setLoading(isLoading) {
+      const btn = document.getElementById('analyzeBtn');
+      const btnIcon = document.getElementById('btnIcon');
+      const btnText = document.getElementById('btnText');
+      const skeleton = document.getElementById('loadingSkeleton');
+      const results = document.getElementById('results');
+      const errorBox = document.getElementById('errorBox');
+
+      btn.disabled = isLoading;
+      btnIcon.textContent = isLoading ? '⏳' : '🔍';
+      btnText.textContent = isLoading ? 'Analizuję...' : 'Analizuj';
+
+      if (isLoading) {
+        skeleton.classList.remove('hidden');
+        results.classList.add('hidden');
+        errorBox.classList.add('hidden');
+      } else {
+        skeleton.classList.add('hidden');
+      }
+    }
+
+    function showError(msg) {
+      const errorBox = document.getElementById('errorBox');
+      errorBox.textContent = '⚠️ ' + msg;
+      errorBox.classList.remove('hidden');
+    }
+
+    function buildSearchUrl(query) {
+      return `https://www.google.com/search?q=${encodeURIComponent(query + ' suplement')}`;
+    }
+
+    function renderResults(data) {
+      const { product, analysis, alternatives } = data;
+
+      // Product card
+      document.getElementById('categoryBadge').textContent = analysis.category || '';
+      document.getElementById('productName').textContent = analysis.product_name || product.name;
+      document.getElementById('productBrand').textContent = analysis.brand ? `Marka: ${analysis.brand}` : '';
+      document.getElementById('productPrice').textContent = product.price
+        ? `${product.price} ${product.currency || ''}` : 'Cena nieznana';
+      document.getElementById('productSummary').textContent = analysis.summary || '';
+
+      // Key ingredients chips
+      const keyContainer = document.getElementById('keyIngredients');
+      keyContainer.innerHTML = '';
+      (analysis.key_active_ingredients || []).forEach(ing => {
+        const chip = document.createElement('a');
+        chip.href = buildSearchUrl(ing + ' suplement kup');
+        chip.target = '_blank';
+        chip.className = 'ingredient-chip bg-indigo-600/20 border border-indigo-500/40 text-indigo-300 text-xs px-3 py-1.5 rounded-full hover:bg-indigo-600/40 cursor-pointer';
+        chip.textContent = ing;
+        keyContainer.appendChild(chip);
+      });
+
+      // Full ingredients list
+      const fullContainer = document.getElementById('fullIngredients');
+      fullContainer.innerHTML = '';
+      (analysis.ingredients || []).forEach(ing => {
+        const row = document.createElement('div');
+        row.className = 'flex justify-between items-center text-sm border-b border-white/5 pb-1.5';
+        const nameSpan = document.createElement('span');
+        nameSpan.className = 'text-slate-200';
+        nameSpan.textContent = ing.name;
+        const amountSpan = document.createElement('span');
+        amountSpan.className = 'text-slate-400 text-xs ml-2 whitespace-nowrap';
+        amountSpan.textContent = [ing.amount, ing.unit, ing.daily_value ? `(${ing.daily_value})` : null]
+          .filter(Boolean).join(' ');
+        row.appendChild(nameSpan);
+        row.appendChild(amountSpan);
+        fullContainer.appendChild(row);
+      });
+
+      // Cheaper alternatives
+      const altContainer = document.getElementById('alternativesList');
+      altContainer.innerHTML = '';
+      const alts = alternatives.cheaper_alternatives || [];
+      if (alts.length === 0) {
+        altContainer.innerHTML = '<p class="text-slate-500 text-sm">Brak propozycji zamienników.</p>';
+      } else {
+        alts.forEach(alt => {
+          const card = document.createElement('div');
+          card.className = 'bg-emerald-900/20 border border-emerald-500/20 rounded-xl p-4';
+          card.innerHTML = `
+            <div class="flex items-start justify-between gap-3 flex-wrap">
+              <div>
+                <p class="font-semibold text-white">${escHtml(alt.name)}</p>
+                <p class="text-slate-400 text-sm mt-1">${escHtml(alt.reason)}</p>
+                ${alt.stores && alt.stores.length ? `<p class="text-slate-500 text-xs mt-1">Sklepy: ${alt.stores.map(escHtml).join(', ')}</p>` : ''}
+              </div>
+              <a href="${buildSearchUrl(alt.search_query)}" target="_blank"
+                class="shrink-0 bg-emerald-600/30 hover:bg-emerald-600/60 border border-emerald-500/40 text-emerald-300 text-sm px-4 py-2 rounded-lg transition-all whitespace-nowrap">
+                🔍 Szukaj
+              </a>
+            </div>
+          `;
+          altContainer.appendChild(card);
+        });
+      }
+
+      // DIY Stack
+      const diyContainer = document.getElementById('diyStack');
+      diyContainer.innerHTML = '';
+      const diy = alternatives.diy_stack || [];
+      if (diy.length === 0) {
+        diyContainer.innerHTML = '<p class="text-slate-500 text-sm">Brak propozycji DIY stack.</p>';
+      } else {
+        diy.forEach(item => {
+          const card = document.createElement('div');
+          card.className = 'bg-amber-900/20 border border-amber-500/20 rounded-xl p-4';
+          card.innerHTML = `
+            <div class="flex items-start justify-between gap-3 flex-wrap">
+              <div class="flex-1">
+                <div class="flex items-center gap-2 flex-wrap">
+                  <p class="font-semibold text-white">${escHtml(item.ingredient)}</p>
+                  ${item.amount_needed ? `<span class="bg-amber-700/30 text-amber-300 text-xs px-2 py-0.5 rounded-full">${escHtml(item.amount_needed)}</span>` : ''}
+                  ${item.estimated_price_per_serving ? `<span class="bg-green-700/30 text-green-300 text-xs px-2 py-0.5 rounded-full">~${escHtml(item.estimated_price_per_serving)}/porcja</span>` : ''}
+                </div>
+                ${item.notes ? `<p class="text-slate-400 text-sm mt-1">${escHtml(item.notes)}</p>` : ''}
+              </div>
+              <a href="${buildSearchUrl(item.search_query)}" target="_blank"
+                class="shrink-0 bg-amber-600/30 hover:bg-amber-600/60 border border-amber-500/40 text-amber-300 text-sm px-4 py-2 rounded-lg transition-all whitespace-nowrap">
+                🔍 Szukaj
+              </a>
+            </div>
+          `;
+          diyContainer.appendChild(card);
+        });
+      }
+
+      // Recommended stores
+      const storesContainer = document.getElementById('storesList');
+      storesContainer.innerHTML = '';
+      const stores = alternatives.recommended_stores || [];
+      stores.forEach(store => {
+        const card = document.createElement('a');
+        card.href = store.url || buildSearchUrl(store.name + ' suplement sklep');
+        card.target = '_blank';
+        card.className = 'block bg-sky-900/20 border border-sky-500/20 hover:border-sky-400/40 rounded-xl p-4 transition-all';
+        card.innerHTML = `
+          <p class="font-semibold text-sky-300">${escHtml(store.name)}</p>
+          ${store.notes ? `<p class="text-slate-400 text-xs mt-1">${escHtml(store.notes)}</p>` : ''}
+        `;
+        storesContainer.appendChild(card);
+      });
+
+      // Savings & advice
+      document.getElementById('savingsPotential').textContent = alternatives.savings_potential || '';
+      document.getElementById('adviceText').textContent = alternatives.advice || '';
+
+      document.getElementById('results').classList.remove('hidden');
+    }
+
+    function escHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    async function analyze() {
+      const url = document.getElementById('urlInput').value.trim();
+      if (!url) {
+        showError('Wklej link do produktu suplementacyjnego.');
+        return;
+      }
+
+      setLoading(true);
+
+      try {
+        const resp = await fetch(`${API_BASE}/api/analyze`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url }),
+        });
+
+        const data = await resp.json();
+
+        if (!resp.ok) {
+          showError(data.detail || 'Wystąpił błąd podczas analizy.');
+          return;
+        }
+
+        renderResults(data);
+      } catch (err) {
+        showError('Błąd połączenia z serwerem. Upewnij się, że aplikacja działa.');
+        console.error(err);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    // Allow Enter key
+    document.getElementById('urlInput').addEventListener('keydown', e => {
+      if (e.key === 'Enter') analyze();
+    });
+  </script>
+</body>
+</html>
