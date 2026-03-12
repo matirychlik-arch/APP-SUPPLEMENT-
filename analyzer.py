@@ -109,10 +109,15 @@ def _clean_json(text: str) -> str:
     return text
 
 
-ALTERNATIVES_SYSTEM_PROMPT = """Jesteś ekspertem od suplementów diety i zakupów online.
-Znasz polskie i międzynarodowe sklepy z suplementami.
+ALTERNATIVES_SYSTEM_PROMPT = """Jesteś ekspertem od suplementów diety i zakupów online w Polsce.
+Znasz ceny suplementów w polskich i międzynarodowych sklepach (iHerb, Myprotein, Allegro, Amazon, sklepy PL).
 
 Odpowiadasz WYŁĄCZNIE w formacie JSON. Bądź zwięzły – max 3 alternatywy, max 6 składników DIY.
+
+WAŻNE: Dla każdej alternatywy podaj szacunkową cenę w PLN. Dla każdego składnika DIY podaj:
+- estimated_price_package: szacunkowa cena opakowania w PLN (np. "45 PLN")
+- estimated_servings_in_package: ile porcji w opakowaniu (np. 60)
+- estimated_price_per_serving: cena za 1 porcję = package/servings (np. "0.75 PLN")
 
 Format:
 {
@@ -122,6 +127,7 @@ Format:
       "reason": "krótki powód (1 zdanie)",
       "search_query": "fraza do wyszukania",
       "stores": ["sklep1", "sklep2"],
+      "estimated_price": "89 PLN",
       "similarity_score": 85,
       "similarity_details": "krótki opis (1 zdanie)",
       "matching_ingredients": ["składnik1"],
@@ -131,9 +137,11 @@ Format:
   "diy_stack": [
     {
       "ingredient": "nazwa",
-      "amount_needed": "dawka",
+      "amount_needed": "dawka na porcję",
       "search_query": "fraza",
-      "estimated_price_per_serving": "0.50 PLN",
+      "estimated_price_package": "35 PLN",
+      "estimated_servings_in_package": 60,
+      "estimated_price_per_serving": "0.58 PLN",
       "notes": "krótka uwaga"
     }
   ],
@@ -144,7 +152,8 @@ Format:
   "advice": "1-2 zdania porady"
 }
 
-similarity_score: 100=identyczny, 80-99=brak 1-2 składników, 60-79=główne OK różni się w dodatkach, <60=częściowe podobieństwo."""
+similarity_score: 100=identyczny, 80-99=brak 1-2 składników, 60-79=główne OK różni się w dodatkach, <60=częściowe podobieństwo.
+Ceny są szacunkowe – zaznacz to w advice."""
 
 DAILY_VALUES_SYSTEM_PROMPT = """Jesteś dietetykiem. Znasz europejskie normy NRV (rozporządzenie UE 1169/2011).
 

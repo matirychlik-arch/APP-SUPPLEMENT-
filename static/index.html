@@ -315,6 +315,7 @@
       // Cheaper alternatives
       const altContainer = document.getElementById('alternativesList');
       altContainer.innerHTML = '';
+      const originalPrice = parseFloat((product.price || '').replace(',', '.')) || null;
       const alts = alternatives.cheaper_alternatives || [];
       if (alts.length === 0) {
         altContainer.innerHTML = '<p class="text-slate-500 text-sm">Brak propozycji zamienników.</p>';
@@ -324,6 +325,9 @@
           const scoreColor = score >= 80 ? 'text-green-400' : score >= 60 ? 'text-amber-400' : 'text-red-400';
           const barColor = score >= 80 ? 'bg-green-500' : score >= 60 ? 'bg-amber-500' : 'bg-red-500';
           const scoreLabel = score >= 80 ? 'Bardzo podobny' : score >= 60 ? 'Podobny' : score >= 40 ? 'Częściowo podobny' : 'Słabe podobieństwo';
+          const altPrice = parseFloat((alt.estimated_price || '').replace(',', '.').replace(/[^0-9.]/g, '')) || null;
+          const savingsPct = (originalPrice && altPrice && altPrice < originalPrice)
+            ? Math.round((1 - altPrice / originalPrice) * 100) : null;
           const card = document.createElement('div');
           card.className = 'bg-emerald-900/20 border border-emerald-500/20 rounded-xl p-4';
           card.innerHTML = `
@@ -333,10 +337,17 @@
                 <p class="text-slate-400 text-sm mt-1">${escHtml(alt.reason)}</p>
                 ${alt.stores && alt.stores.length ? `<p class="text-slate-500 text-xs mt-1">Sklepy: ${alt.stores.map(escHtml).join(', ')}</p>` : ''}
               </div>
-              <a href="${buildSearchUrl(alt.search_query)}" target="_blank"
-                class="shrink-0 bg-emerald-600/30 hover:bg-emerald-600/60 border border-emerald-500/40 text-emerald-300 text-sm px-4 py-2 rounded-lg transition-all whitespace-nowrap">
-                🔍 Szukaj
-              </a>
+              <div class="flex flex-col items-end gap-2 shrink-0">
+                ${alt.estimated_price ? `
+                  <div class="text-right">
+                    <div class="text-xl font-bold text-green-400">~${escHtml(alt.estimated_price)}</div>
+                    ${savingsPct ? `<div class="text-xs text-green-500 font-semibold">oszczędzasz ${savingsPct}%</div>` : ''}
+                  </div>` : ''}
+                <a href="${buildSearchUrl(alt.search_query)}" target="_blank"
+                  class="bg-emerald-600/30 hover:bg-emerald-600/60 border border-emerald-500/40 text-emerald-300 text-sm px-4 py-2 rounded-lg transition-all whitespace-nowrap">
+                  🔍 Szukaj
+                </a>
+              </div>
             </div>
             ${score > 0 ? `
             <div class="border-t border-white/10 pt-3">
@@ -365,7 +376,16 @@
       if (diy.length === 0) {
         diyContainer.innerHTML = '<p class="text-slate-500 text-sm">Brak propozycji DIY stack.</p>';
       } else {
+        let totalPerServing = 0;
+        let totalPackage = 0;
+        let hasAnyPrice = false;
+
         diy.forEach(item => {
+          const pricePerServing = parseFloat((item.estimated_price_per_serving || '').replace(',', '.').replace(/[^0-9.]/g, '')) || 0;
+          const pricePackage = parseFloat((item.estimated_price_package || '').replace(',', '.').replace(/[^0-9.]/g, '')) || 0;
+          if (pricePerServing > 0) { totalPerServing += pricePerServing; hasAnyPrice = true; }
+          if (pricePackage > 0) totalPackage += pricePackage;
+
           const card = document.createElement('div');
           card.className = 'bg-amber-900/20 border border-amber-500/20 rounded-xl p-4';
           card.innerHTML = `
@@ -374,9 +394,15 @@
                 <div class="flex items-center gap-2 flex-wrap">
                   <p class="font-semibold text-white">${escHtml(item.ingredient)}</p>
                   ${item.amount_needed ? `<span class="bg-amber-700/30 text-amber-300 text-xs px-2 py-0.5 rounded-full">${escHtml(item.amount_needed)}</span>` : ''}
-                  ${item.estimated_price_per_serving ? `<span class="bg-green-700/30 text-green-300 text-xs px-2 py-0.5 rounded-full">~${escHtml(item.estimated_price_per_serving)}/porcja</span>` : ''}
                 </div>
                 ${item.notes ? `<p class="text-slate-400 text-sm mt-1">${escHtml(item.notes)}</p>` : ''}
+                ${item.estimated_price_package && item.estimated_servings_in_package ? `
+                  <p class="text-xs text-slate-500 mt-1">
+                    Opakowanie: <span class="text-amber-300 font-medium">~${escHtml(item.estimated_price_package)}</span>
+                    · ${escHtml(String(item.estimated_servings_in_package))} porcji
+                    · <span class="text-green-400 font-medium">~${escHtml(item.estimated_price_per_serving || '?')}/porcja</span>
+                  </p>` : item.estimated_price_per_serving ? `
+                  <p class="text-xs text-slate-500 mt-1">~<span class="text-green-400 font-medium">${escHtml(item.estimated_price_per_serving)}</span> / porcja</p>` : ''}
               </div>
               <a href="${buildSearchUrl(item.search_query)}" target="_blank"
                 class="shrink-0 bg-amber-600/30 hover:bg-amber-600/60 border border-amber-500/40 text-amber-300 text-sm px-4 py-2 rounded-lg transition-all whitespace-nowrap">
@@ -386,6 +412,37 @@
           `;
           diyContainer.appendChild(card);
         });
+
+        // DIY total summary
+        if (hasAnyPrice) {
+          const diyTotalPct = (originalPrice && totalPerServing > 0)
+            ? Math.round((1 - totalPerServing / originalPrice) * 100) : null;
+          const summary = document.createElement('div');
+          summary.className = 'mt-4 bg-green-900/30 border border-green-500/30 rounded-xl p-4';
+          summary.innerHTML = `
+            <p class="text-xs text-slate-400 uppercase font-semibold mb-2 tracking-wider">Podsumowanie DIY Stack</p>
+            <div class="flex flex-wrap gap-6 items-center">
+              <div>
+                <p class="text-xs text-slate-500">Koszt / porcja (suma)</p>
+                <p class="text-2xl font-bold text-green-400">~${totalPerServing.toFixed(2)} PLN</p>
+              </div>
+              ${totalPackage > 0 ? `<div>
+                <p class="text-xs text-slate-500">Łączny koszt opakowań</p>
+                <p class="text-xl font-bold text-amber-400">~${totalPackage.toFixed(0)} PLN</p>
+              </div>` : ''}
+              ${originalPrice ? `<div>
+                <p class="text-xs text-slate-500">Oryginał / porcja</p>
+                <p class="text-xl font-bold text-slate-400">${originalPrice.toFixed(2)} PLN</p>
+              </div>` : ''}
+              ${diyTotalPct !== null ? `<div class="ml-auto text-right">
+                <p class="text-xs text-slate-500">Oszczędzasz</p>
+                <p class="text-3xl font-extrabold ${diyTotalPct > 0 ? 'text-green-400' : 'text-red-400'}">${diyTotalPct > 0 ? '-' : '+'}${Math.abs(diyTotalPct)}%</p>
+              </div>` : ''}
+            </div>
+            <p class="text-xs text-slate-600 mt-2">* Ceny szacunkowe. Koszt opakowań jednorazowy – im dłużej stosujesz, tym taniej wychodzi.</p>
+          `;
+          diyContainer.appendChild(summary);
+        }
       }
 
       // Recommended stores
