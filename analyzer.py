@@ -110,98 +110,100 @@ def _clean_json(text: str) -> str:
 
 
 ALTERNATIVES_SYSTEM_PROMPT = """Jesteś ekspertem od suplementów diety i zakupów online.
-Znasz polskie i międzynarodowe sklepy z suplementami oraz europejskie normy RDA.
+Znasz polskie i międzynarodowe sklepy z suplementami.
 
-Odpowiadasz WYŁĄCZNIE w formacie JSON.
-
-Na podstawie analizy suplementu, zaproponuj:
-1. Tańsze zamienniki całego produktu z oceną podobieństwa składu
-2. Możliwość zakupu osobnych składników (DIY stack)
-3. Sklepy, gdzie szukać
-4. Pokrycie dziennego zapotrzebowania (RDA/NRV) dla każdego składnika
+Odpowiadasz WYŁĄCZNIE w formacie JSON. Bądź zwięzły – max 3 alternatywy, max 6 składników DIY.
 
 Format:
 {
   "cheaper_alternatives": [
     {
       "name": "nazwa zamiennika",
-      "reason": "dlaczego jest tańszy/lepszy stosunek jakości do ceny",
+      "reason": "krótki powód (1 zdanie)",
       "search_query": "fraza do wyszukania",
-      "stores": ["lista sklepów gdzie szukać"],
+      "stores": ["sklep1", "sklep2"],
       "similarity_score": 85,
-      "similarity_details": "krótki opis co pokrywa a czego brak (np. 'zawiera 8/10 składników aktywnych, brak witaminy K2')",
-      "matching_ingredients": ["składnik1", "składnik2"],
-      "missing_ingredients": ["składnik którego brak"]
+      "similarity_details": "krótki opis (1 zdanie)",
+      "matching_ingredients": ["składnik1"],
+      "missing_ingredients": ["brakujący"]
     }
   ],
   "diy_stack": [
     {
-      "ingredient": "nazwa składnika",
-      "amount_needed": "dawka na porcję",
-      "search_query": "fraza do wyszukania",
-      "estimated_price_per_serving": "szacowana cena za porcję w PLN lub null",
-      "notes": "uwagi (np. dostępność, popularne marki)"
+      "ingredient": "nazwa",
+      "amount_needed": "dawka",
+      "search_query": "fraza",
+      "estimated_price_per_serving": "0.50 PLN",
+      "notes": "krótka uwaga"
     }
   ],
   "recommended_stores": [
-    {
-      "name": "nazwa sklepu",
-      "url": "adres strony",
-      "notes": "uwagi o sklepie"
-    }
+    {"name": "nazwa", "url": "https://...", "notes": "uwaga"}
   ],
+  "savings_potential": "1-2 zdania o oszczędnościach",
+  "advice": "1-2 zdania porady"
+}
+
+similarity_score: 100=identyczny, 80-99=brak 1-2 składników, 60-79=główne OK różni się w dodatkach, <60=częściowe podobieństwo."""
+
+DAILY_VALUES_SYSTEM_PROMPT = """Jesteś dietetykiem. Znasz europejskie normy NRV (rozporządzenie UE 1169/2011).
+
+Odpowiadasz WYŁĄCZNIE w formacie JSON. Podaj NRV tylko dla składników które mają ustalone normy UE.
+
+Format:
+{
   "daily_values": [
     {
       "ingredient": "nazwa składnika",
-      "amount_per_serving": "dawka w produkcie",
+      "amount_per_serving": "dawka z produktu",
       "nrv_percent": 75,
-      "nrv_note": "opcjonalna uwaga (np. 'wyższe zapotrzebowanie u kobiet w ciąży')",
-      "gender_note": "opcjonalnie: różnica K vs M jeśli dotyczy"
+      "nrv_note": "opcjonalna uwaga max 1 zdanie",
+      "gender_note": "różnica K vs M jeśli istotna, max 1 zdanie lub null"
     }
-  ],
-  "savings_potential": "opis potencjalnych oszczędności",
-  "advice": "praktyczna rada dla użytkownika"
+  ]
 }
 
-Zasady similarity_score:
-- 100 = identyczny skład i dawki
-- 80-99 = brakuje 1-2 mniej istotnych składników
-- 60-79 = pokrywa główne składniki aktywne, różni się w pomocniczych
-- 40-59 = podobna kategoria, ale znaczące różnice w składzie
-- poniżej 40 = tylko częściowe podobieństwo
+Jeśli składnik nie ma normy NRV (np. ekstrakty ziołowe, aminokwasy bez normy), pomiń go."""
 
-Dla daily_values używaj europejskich wartości NRV (Nutrient Reference Values) z rozporządzenia UE 1169/2011."""
+
+def _call_claude(system: str, content: str, max_tokens: int = 3000) -> dict:
+    client = anthropic.Anthropic()
+    message = client.messages.create(
+        model="claude-sonnet-4-6",
+        max_tokens=max_tokens,
+        system=system,
+        messages=[{"role": "user", "content": content}],
+    )
+    response_text = message.content[0].text.strip()
+    return json.loads(_clean_json(response_text))
 
 
 def generate_alternatives(analysis: AnalysisResult, original_price: Optional[str] = None, user_profile: Optional[str] = None) -> dict:
-    """Generate cheaper alternatives and DIY stack suggestions."""
-    client = anthropic.Anthropic()
-
-    profile_info = f"\nProfil użytkownika: {user_profile}" if user_profile else "\nProfil użytkownika: nie podano (użyj uniwersalnych wartości NRV)"
-
-    content = f"""Analizowany suplement:
-Nazwa: {analysis.product_name}
-Marka: {analysis.brand or 'nieznana'}
-Kategoria: {analysis.category}
-Cena oryginalna: {original_price or 'nieznana'}{profile_info}
-
-Składniki (kluczowe aktywne):
-{', '.join(analysis.key_active_ingredients)}
-
-Wszystkie składniki:
-{json.dumps([i.model_dump() for i in analysis.ingredients], ensure_ascii=False, indent=2)}
-
-Podsumowanie: {analysis.summary}
-
-Zaproponuj tańsze zamienniki z similarity_score, DIY stack i daily_values dla polskiego użytkownika."""
-
-    message = client.messages.create(
-        model="claude-sonnet-4-6",
-        max_tokens=4000,
-        system=ALTERNATIVES_SYSTEM_PROMPT,
-        messages=[{"role": "user", "content": content}],
+    """Generate cheaper alternatives, DIY stack, and daily values via two separate calls."""
+    profile_info = f"\nProfil użytkownika: {user_profile}" if user_profile else ""
+    ingredients_summary = ", ".join(
+        f"{i.name} {i.amount or ''}{i.unit or ''}".strip()
+        for i in analysis.ingredients
     )
 
-    response_text = message.content[0].text.strip()
-    response_text = _clean_json(response_text)
-    return json.loads(response_text)
+    base_content = f"""Suplement: {analysis.product_name} ({analysis.brand or 'nieznana marka'})
+Kategoria: {analysis.category}
+Cena: {original_price or 'nieznana'}{profile_info}
+Kluczowe składniki aktywne: {', '.join(analysis.key_active_ingredients)}
+Wszystkie składniki: {ingredients_summary}"""
+
+    # Call 1: alternatives + DIY + stores
+    result = _call_claude(ALTERNATIVES_SYSTEM_PROMPT, base_content + "\n\nZaproponuj tańsze zamienniki i DIY stack dla polskiego użytkownika.")
+
+    # Call 2: daily values
+    try:
+        dv_result = _call_claude(
+            DAILY_VALUES_SYSTEM_PROMPT,
+            base_content + "\n\nPodaj pokrycie NRV dla składników z ustalonymi normami UE.",
+            max_tokens=2000,
+        )
+        result["daily_values"] = dv_result.get("daily_values", [])
+    except Exception:
+        result["daily_values"] = []
+
+    return result
