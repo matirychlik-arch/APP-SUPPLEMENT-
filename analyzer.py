@@ -1,5 +1,6 @@
 import anthropic
 import json
+import re
 from typing import Optional
 from scraper import ProductInfo
 from pydantic import BaseModel
@@ -85,14 +86,27 @@ def analyze_supplement(product: ProductInfo) -> AnalysisResult:
     )
 
     response_text = message.content[0].text.strip()
-
-    # Strip markdown code blocks if present
-    if response_text.startswith("```"):
-        lines = response_text.split("\n")
-        response_text = "\n".join(lines[1:-1])
-
+    response_text = _clean_json(response_text)
     data = json.loads(response_text)
     return AnalysisResult(**data)
+
+
+def _clean_json(text: str) -> str:
+    """Strip markdown fences, comments, and trailing commas from JSON string."""
+    text = re.sub(r"^```(?:json)?\s*", "", text)
+    text = re.sub(r"\s*```$", "", text)
+    text = text.strip()
+
+    match = re.search(r"(\{[\s\S]*\}|\[[\s\S]*\])", text)
+    if match:
+        text = match.group(1)
+
+    # Remove JS-style single-line comments
+    text = re.sub(r"//[^\n\"]*\n", "\n", text)
+    # Remove trailing commas before } or ]
+    text = re.sub(r",\s*([}\]])", r"\1", text)
+
+    return text
 
 
 ALTERNATIVES_SYSTEM_PROMPT = """Jesteś ekspertem od suplementów diety i zakupów online.
@@ -158,15 +172,11 @@ Zaproponuj tańsze zamienniki i opcję DIY stack dla polskiego użytkownika."""
 
     message = client.messages.create(
         model="claude-sonnet-4-6",
-        max_tokens=2500,
+        max_tokens=4000,
         system=ALTERNATIVES_SYSTEM_PROMPT,
         messages=[{"role": "user", "content": content}],
     )
 
     response_text = message.content[0].text.strip()
-
-    if response_text.startswith("```"):
-        lines = response_text.split("\n")
-        response_text = "\n".join(lines[1:-1])
-
+    response_text = _clean_json(response_text)
     return json.loads(response_text)
