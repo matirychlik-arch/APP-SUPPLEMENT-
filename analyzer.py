@@ -110,14 +110,15 @@ def _clean_json(text: str) -> str:
 
 
 ALTERNATIVES_SYSTEM_PROMPT = """Jesteś ekspertem od suplementów diety i zakupów online.
-Znasz polskie i międzynarodowe sklepy z suplementami.
+Znasz polskie i międzynarodowe sklepy z suplementami oraz europejskie normy RDA.
 
 Odpowiadasz WYŁĄCZNIE w formacie JSON.
 
 Na podstawie analizy suplementu, zaproponuj:
-1. Tańsze zamienniki całego produktu (inne marki z tym samym składem)
-2. Możliwość zakupu osobnych składników (tzw. "stack" DIY)
+1. Tańsze zamienniki całego produktu z oceną podobieństwa składu
+2. Możliwość zakupu osobnych składników (DIY stack)
 3. Sklepy, gdzie szukać
+4. Pokrycie dziennego zapotrzebowania (RDA/NRV) dla każdego składnika
 
 Format:
 {
@@ -126,7 +127,11 @@ Format:
       "name": "nazwa zamiennika",
       "reason": "dlaczego jest tańszy/lepszy stosunek jakości do ceny",
       "search_query": "fraza do wyszukania",
-      "stores": ["lista sklepów gdzie szukać"]
+      "stores": ["lista sklepów gdzie szukać"],
+      "similarity_score": 85,
+      "similarity_details": "krótki opis co pokrywa a czego brak (np. 'zawiera 8/10 składników aktywnych, brak witaminy K2')",
+      "matching_ingredients": ["składnik1", "składnik2"],
+      "missing_ingredients": ["składnik którego brak"]
     }
   ],
   "diy_stack": [
@@ -145,20 +150,40 @@ Format:
       "notes": "uwagi o sklepie"
     }
   ],
+  "daily_values": [
+    {
+      "ingredient": "nazwa składnika",
+      "amount_per_serving": "dawka w produkcie",
+      "nrv_percent": 75,
+      "nrv_note": "opcjonalna uwaga (np. 'wyższe zapotrzebowanie u kobiet w ciąży')",
+      "gender_note": "opcjonalnie: różnica K vs M jeśli dotyczy"
+    }
+  ],
   "savings_potential": "opis potencjalnych oszczędności",
   "advice": "praktyczna rada dla użytkownika"
-}"""
+}
+
+Zasady similarity_score:
+- 100 = identyczny skład i dawki
+- 80-99 = brakuje 1-2 mniej istotnych składników
+- 60-79 = pokrywa główne składniki aktywne, różni się w pomocniczych
+- 40-59 = podobna kategoria, ale znaczące różnice w składzie
+- poniżej 40 = tylko częściowe podobieństwo
+
+Dla daily_values używaj europejskich wartości NRV (Nutrient Reference Values) z rozporządzenia UE 1169/2011."""
 
 
-def generate_alternatives(analysis: AnalysisResult, original_price: Optional[str] = None) -> dict:
+def generate_alternatives(analysis: AnalysisResult, original_price: Optional[str] = None, user_profile: Optional[str] = None) -> dict:
     """Generate cheaper alternatives and DIY stack suggestions."""
     client = anthropic.Anthropic()
+
+    profile_info = f"\nProfil użytkownika: {user_profile}" if user_profile else "\nProfil użytkownika: nie podano (użyj uniwersalnych wartości NRV)"
 
     content = f"""Analizowany suplement:
 Nazwa: {analysis.product_name}
 Marka: {analysis.brand or 'nieznana'}
 Kategoria: {analysis.category}
-Cena oryginalna: {original_price or 'nieznana'}
+Cena oryginalna: {original_price or 'nieznana'}{profile_info}
 
 Składniki (kluczowe aktywne):
 {', '.join(analysis.key_active_ingredients)}
@@ -168,7 +193,7 @@ Wszystkie składniki:
 
 Podsumowanie: {analysis.summary}
 
-Zaproponuj tańsze zamienniki i opcję DIY stack dla polskiego użytkownika."""
+Zaproponuj tańsze zamienniki z similarity_score, DIY stack i daily_values dla polskiego użytkownika."""
 
     message = client.messages.create(
         model="claude-sonnet-4-6",

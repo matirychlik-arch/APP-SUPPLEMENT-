@@ -2,6 +2,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse, FileResponse
 from pydantic import BaseModel, HttpUrl
+from typing import Optional
 from dotenv import load_dotenv
 import os
 import logging
@@ -22,6 +23,7 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 
 class AnalyzeRequest(BaseModel):
     url: str
+    user_profile: Optional[str] = None
 
 
 class AnalyzeResponse(BaseModel):
@@ -74,7 +76,7 @@ async def analyze(request: AnalyzeRequest):
     # 3. Generate alternatives
     log.info("[3/3] Generuję tańsze zamienniki z Claude AI...")
     try:
-        alternatives = generate_alternatives(analysis, product.price)
+        alternatives = generate_alternatives(analysis, product.price, request.user_profile)
         log.info("[3/3] OK – gotowe!")
     except Exception as e:
         log.error(f"[3/3] BŁĄD alternatyw: {e}")
