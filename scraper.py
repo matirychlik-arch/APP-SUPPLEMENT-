@@ -1,4 +1,5 @@
 import httpx
+import json
 from bs4 import BeautifulSoup
 from pydantic import BaseModel
 from typing import Optional
@@ -27,19 +28,61 @@ HEADERS = {
 }
 
 
+def _detect_currency(text: str) -> str:
+    if "$" in text or "USD" in text:
+        return "USD"
+    if "€" in text or "EUR" in text:
+        return "EUR"
+    if "£" in text or "GBP" in text:
+        return "GBP"
+    return "PLN"
+
+
+def _extract_price_from_json_ld(soup: BeautifulSoup) -> tuple[Optional[str], Optional[str]]:
+    """Extract price from JSON-LD structured data (Shopify, schema.org)."""
+    for tag in soup.find_all("script", type="application/ld+json"):
+        try:
+            data = json.loads(tag.string or "")
+        except Exception:
+            continue
+
+        # Handle list of objects
+        items = data if isinstance(data, list) else [data]
+        for item in items:
+            # Direct Product offer
+            offers = item.get("offers") or item.get("Offers")
+            if offers:
+                if isinstance(offers, list):
+                    offers = offers[0]
+                price = offers.get("price") or offers.get("lowPrice")
+                currency = offers.get("priceCurrency", "PLN")
+                if price:
+                    return str(price), currency
+            # AggregateOffer
+            price = item.get("price")
+            currency = item.get("priceCurrency", "PLN")
+            if price:
+                return str(price), currency
+
+    return None, None
+
+
 def _extract_price(soup: BeautifulSoup) -> tuple[Optional[str], Optional[str]]:
-    """Try common price selectors across multiple supplement stores."""
+    """Try JSON-LD first, then common CSS selectors."""
+    # 1. JSON-LD (Shopify, WooCommerce, etc.)
+    price, currency = _extract_price_from_json_ld(soup)
+    if price:
+        return price, currency
+
+    # 2. HTML selectors
     price_selectors = [
-        # Generic structured data
         'span[itemprop="price"]',
         'meta[itemprop="price"]',
-        # Common class patterns
         ".price",
         ".product-price",
         ".current-price",
         ".sale-price",
         '[class*="price"]',
-        # Polish stores
         ".cena",
         ".price-final",
     ]
@@ -47,20 +90,11 @@ def _extract_price(soup: BeautifulSoup) -> tuple[Optional[str], Optional[str]]:
         el = soup.select_one(sel)
         if el:
             content = el.get("content") or el.get_text(strip=True)
-            # Extract numeric price
-            match = re.search(r"[\d\s]+[,.]?\d*", content)
+            match = re.search(r"\d[\d\s]*[,.]?\d*", content)
             if match:
                 raw = match.group().replace(" ", "").replace(",", ".")
-                # Detect currency
-                currency = "PLN"
-                text = el.get_text(" ", strip=True)
-                if "$" in text or "USD" in text:
-                    currency = "USD"
-                elif "€" in text or "EUR" in text:
-                    currency = "EUR"
-                elif "£" in text or "GBP" in text:
-                    currency = "GBP"
-                return raw, currency
+                return raw, _detect_currency(el.get_text(" ", strip=True))
+
     return None, None
 
 
@@ -143,13 +177,14 @@ async def scrape_product(url: str) -> ProductInfo:
 
     soup = BeautifulSoup(html, "lxml")
 
-    # Remove scripts and styles for cleaner text extraction
-    for tag in soup(["script", "style", "noscript"]):
-        tag.decompose()
-
+    # Extract price BEFORE removing scripts (JSON-LD is inside <script> tags)
     name = _extract_name(soup, url)
     brand = _extract_brand(soup)
     price, currency = _extract_price(soup)
+
+    # Now remove scripts and styles for cleaner text extraction
+    for tag in soup(["script", "style", "noscript"]):
+        tag.decompose()
     ingredients_raw = _extract_ingredients(soup)
 
     # Fallback: try to get description for analysis when no ingredients found
