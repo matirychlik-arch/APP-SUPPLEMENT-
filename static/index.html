@@ -85,7 +85,7 @@
         <div class="skeleton rounded-2xl h-64"></div>
       </div>
       <div class="skeleton rounded-2xl h-48"></div>
-      <p class="text-center text-slate-400 text-sm animate-pulse">Analizuję skład z pomocą AI... To może potrwać kilka sekund.</p>
+      <p id="loadingStatus" class="text-center text-slate-400 text-sm animate-pulse">⏳ Pobieram stronę produktu...</p>
     </div>
 
     <!-- Results -->
@@ -337,6 +337,11 @@
         .replace(/"/g, '&quot;');
     }
 
+    function setStatus(msg) {
+      const el = document.getElementById('loadingStatus');
+      if (el) el.textContent = msg;
+    }
+
     async function analyze() {
       const url = document.getElementById('urlInput').value.trim();
       if (!url) {
@@ -345,6 +350,16 @@
       }
 
       setLoading(true);
+      setStatus('⏳ Krok 1/3: Pobieram stronę produktu...');
+
+      // Simulate step updates while waiting
+      const steps = [
+        [2000,  '⏳ Krok 1/3: Pobieram stronę produktu...'],
+        [4000,  '🔬 Krok 2/3: Claude AI analizuje skład...'],
+        [12000, '💡 Krok 3/3: Szukam tańszych zamienników...'],
+        [22000, '⌛ Jeszcze chwila, generuję pełną analizę...'],
+      ];
+      const timers = steps.map(([ms, msg]) => setTimeout(() => setStatus(msg), ms));
 
       try {
         const resp = await fetch(`${API_BASE}/api/analyze`, {
@@ -360,8 +375,10 @@
           return;
         }
 
+        timers.forEach(clearTimeout);
         renderResults(data);
       } catch (err) {
+        timers.forEach(clearTimeout);
         showError('Błąd połączenia z serwerem. Upewnij się, że aplikacja działa.');
         console.error(err);
       } finally {

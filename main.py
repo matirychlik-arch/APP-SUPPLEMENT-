@@ -4,6 +4,10 @@ from fastapi.responses import HTMLResponse, FileResponse
 from pydantic import BaseModel, HttpUrl
 from dotenv import load_dotenv
 import os
+import logging
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s")
+log = logging.getLogger(__name__)
 
 load_dotenv()
 
@@ -38,9 +42,12 @@ async def analyze(request: AnalyzeRequest):
         raise HTTPException(status_code=400, detail="Nieprawidłowy URL. Podaj pełny adres zaczynający się od http:// lub https://")
 
     # 1. Scrape product page
+    log.info(f"[1/3] Pobieram stronę produktu: {url}")
     try:
         product = await scrape_product(url)
+        log.info(f"[1/3] OK – produkt: {product.name}")
     except Exception as e:
+        log.error(f"[1/3] BŁĄD scraping: {e}")
         raise HTTPException(
             status_code=422,
             detail=f"Nie udało się pobrać strony produktu: {str(e)}"
@@ -53,18 +60,24 @@ async def analyze(request: AnalyzeRequest):
         )
 
     # 2. Analyze with Claude
+    log.info("[2/3] Analizuję skład z Claude AI...")
     try:
         analysis = analyze_supplement(product)
+        log.info(f"[2/3] OK – kategoria: {analysis.category}, składniki: {len(analysis.ingredients)}")
     except Exception as e:
+        log.error(f"[2/3] BŁĄD analizy: {e}")
         raise HTTPException(
             status_code=500,
             detail=f"Błąd analizy składników: {str(e)}"
         )
 
     # 3. Generate alternatives
+    log.info("[3/3] Generuję tańsze zamienniki z Claude AI...")
     try:
         alternatives = generate_alternatives(analysis, product.price)
+        log.info("[3/3] OK – gotowe!")
     except Exception as e:
+        log.error(f"[3/3] BŁĄD alternatyw: {e}")
         raise HTTPException(
             status_code=500,
             detail=f"Błąd generowania alternatyw: {str(e)}"
