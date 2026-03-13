@@ -361,6 +361,27 @@
     }
     .btn-search:hover { border-color: var(--accent-dk); color: var(--accent-dk); background: rgba(114,216,86,0.08); }
 
+    /* Mini score ring (quality_score on alternative cards) */
+    .mini-ring-wrap { position: relative; width: 64px; height: 64px; flex-shrink: 0; }
+    .mini-ring-wrap svg { transform: rotate(-90deg); }
+    .mini-ring-bg   { fill: none; stroke: var(--bg-el); stroke-width: 8; }
+    .mini-ring-fill { fill: none; stroke-width: 8; stroke-linecap: round; }
+    .mini-ring-num  {
+      position: absolute; inset: 0;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      font-family: 'Syne', sans-serif; font-weight: 800; font-size: 15px; line-height: 1;
+      color: var(--text);
+    }
+    .mini-ring-num small { font-size: 8px; font-weight: 400; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; }
+
+    /* DIY coverage score badge */
+    .diy-coverage {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      background: var(--bg-el); border-radius: 12px; padding: 12px 20px; min-width: 90px;
+    }
+    .diy-coverage-val { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 28px; line-height: 1; }
+    .diy-coverage-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; margin-top: 3px; text-align: center; }
+
     /* Similarity bar */
     .sim-block { border-top: 1px solid var(--border); padding-top: 14px; }
     .sim-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
@@ -1093,6 +1114,10 @@
         const sc      = simColor(score);
         const altPx   = parseFloat((alt.estimated_price||'').replace(',','.').replace(/[^0-9.]/g,'')) || null;
         const savePct = (origPrice && altPx && altPx < origPrice) ? Math.round((1 - altPx/origPrice)*100) : null;
+        const qScore  = parseInt(alt.quality_score) || 0;
+        const qc      = scoreColor(qScore);
+        const qR = 24, qCX = 32, qCY = 32, qCirc = 2 * Math.PI * qR;
+        const qOffset = qScore > 0 ? qCirc * (1 - qScore / 100) : qCirc;
 
         const card = document.createElement('div');
         card.className = 'alt-card';
@@ -1103,6 +1128,17 @@
               <div class="alt-reason">${esc(alt.reason)}</div>
               ${alt.stores?.length ? `<div class="alt-stores">Sklepy: ${alt.stores.map(esc).join(' · ')}</div>` : ''}
             </div>
+            ${qScore > 0 ? `
+            <div class="mini-ring-wrap" title="Jakość zamiennika: ${esc(alt.quality_verdict||'')}">
+              <svg viewBox="0 0 64 64" width="64" height="64">
+                <circle class="mini-ring-bg"   cx="${qCX}" cy="${qCY}" r="${qR}"/>
+                <circle class="mini-ring-fill"  cx="${qCX}" cy="${qCY}" r="${qR}"
+                  stroke="${qc.stroke}"
+                  stroke-dasharray="${qCirc.toFixed(1)}"
+                  stroke-dashoffset="${qOffset.toFixed(1)}"/>
+              </svg>
+              <div class="mini-ring-num">${qScore}<small>/100</small></div>
+            </div>` : ''}
             <div class="alt-price-block">
               ${alt.estimated_price ? `<div class="alt-price">~${esc(alt.estimated_price)}</div>` : ''}
               ${savePct ? `<span class="alt-savings">-${savePct}%</span>` : ''}
@@ -1131,6 +1167,7 @@
     const dc = document.getElementById('diyStack');
     dc.innerHTML = '';
     const diy = alternatives.diy_stack || [];
+    const diyCoverage = parseInt(alternatives.diy_coverage_score) || 0;
     if (!diy.length) {
       dc.innerHTML = '<p style="font-size:13px;color:var(--text-muted);margin-bottom:24px">Brak propozycji DIY stack.</p>';
     } else {
@@ -1183,6 +1220,10 @@
           ${savePct !== null ? `<div class="diy-sum-savings">
             <div class="diy-sum-label">oszczędzasz</div>
             <div class="diy-sum-savings-pct">${savePct > 0 ? '-' : '+'}${Math.abs(savePct)}%</div>
+          </div>` : ''}
+          ${diyCoverage > 0 ? `<div class="diy-coverage">
+            <div class="diy-coverage-val" style="color:${scoreColor(diyCoverage).stroke}">${diyCoverage}%</div>
+            <div class="diy-coverage-label">pokrycie<br>składników</div>
           </div>` : ''}
           <p class="diy-sum-note" style="width:100%;margin-top:0">* Ceny szacunkowe. Koszt opakowań jednorazowy – taniej z każdym miesiącem.</p>`;
         dc.appendChild(sum);

@@ -151,7 +151,9 @@ Format:
       "similarity_score": 85,
       "similarity_details": "krótki opis (1 zdanie)",
       "matching_ingredients": ["składnik1"],
-      "missing_ingredients": ["brakujący"]
+      "missing_ingredients": ["brakujący"],
+      "quality_score": 72,
+      "quality_verdict": "Dobry"
     }
   ],
   "diy_stack": [
@@ -165,6 +167,7 @@ Format:
       "notes": "krótka uwaga"
     }
   ],
+  "diy_coverage_score": 85,
   "recommended_stores": [
     {"name": "nazwa", "url": "https://...", "notes": "uwaga"}
   ],
@@ -173,6 +176,8 @@ Format:
 }
 
 similarity_score: 100=identyczny, 80-99=brak 1-2 składników, 60-79=główne OK różni się w dodatkach, <60=częściowe podobieństwo.
+quality_score: szacunkowa jakość samego zamiennika (0-100). 80-100=Doskonały, 60-79=Dobry, 40-59=Przeciętny, <40=Słaby. Oceń formy składników, markę, wartość za cenę.
+diy_coverage_score: ile % aktywnych składników oryginału pokrywa DIY stack (0-100). 100=wszystkie pokryte, 0=brak pokrycia.
 Ceny są szacunkowe – zaznacz to w advice."""
 
 DAILY_VALUES_SYSTEM_PROMPT = """Jesteś dietetykiem. Znasz europejskie normy NRV (rozporządzenie UE 1169/2011) oraz zalecenia dla różnych grup.
