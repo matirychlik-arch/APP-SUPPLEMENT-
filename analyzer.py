@@ -219,18 +219,24 @@ Cena: {original_price or 'nieznana'}{profile_info}
 Kluczowe składniki aktywne: {', '.join(analysis.key_active_ingredients)}
 Wszystkie składniki: {ingredients_summary}"""
 
+    log = __import__('logging').getLogger(__name__)
+    log.info(f"[generate_alternatives] profile={user_profile!r}")
+
     # Call 1: alternatives + DIY + stores
-    result = _call_claude(ALTERNATIVES_SYSTEM_PROMPT, base_content + "\n\nZaproponuj tańsze zamienniki i DIY stack dla polskiego użytkownika.")
+    result = _call_claude(ALTERNATIVES_SYSTEM_PROMPT, base_content + "\n\nZaproponuj tańsze zamienniki i DIY stack dla polskiego użytkownika.", max_tokens=4000)
+    log.info(f"[generate_alternatives] call1 OK, keys={list(result.keys())}")
 
     # Call 2: daily values
     try:
         dv_result = _call_claude(
             DAILY_VALUES_SYSTEM_PROMPT,
             base_content + "\n\nPodaj pokrycie NRV dla składników z ustalonymi normami UE.",
-            max_tokens=2000,
+            max_tokens=2500,
         )
         result["daily_values"] = dv_result.get("daily_values", [])
-    except Exception:
+        log.info(f"[generate_alternatives] call2 OK, {len(result['daily_values'])} NRV entries")
+    except Exception as e:
+        log.warning(f"[generate_alternatives] call2 FAILED: {e}")
         result["daily_values"] = []
 
     return result

@@ -846,10 +846,15 @@
       const data = await resp.json();
       timers.forEach(clearTimeout);
       if (!resp.ok) { showError(data.detail || 'Błąd analizy.'); return; }
-      renderResults(data);
+      try {
+        renderResults(data);
+      } catch (renderErr) {
+        console.error('renderResults error:', renderErr);
+        showError('Błąd wyświetlania wyników: ' + renderErr.message);
+      }
     } catch (e) {
       timers.forEach(clearTimeout);
-      showError('Błąd połączenia z serwerem.');
+      showError('Błąd połączenia z serwerem: ' + e.message);
       console.error(e);
     } finally {
       setLoading(false);
