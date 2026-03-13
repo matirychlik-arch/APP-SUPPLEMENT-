@@ -1097,7 +1097,7 @@
       ${analysis.total_servings ? `
         <div style="font-size:13px;color:var(--text-muted);margin-top:8px;font-family:'JetBrains Mono',monospace">${esc(analysis.total_servings)} porcji</div>` : ''}
       ${origPricePerServing ? `
-        <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:22px;color:var(--accent);margin-top:4px">~${origPricePerServing.toFixed(2)} PLN</div>
+        <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:22px;color:var(--accent);margin-top:4px">ok. ${origPricePerServing.toFixed(2)} PLN</div>
         <div class="product-price-label">cena / porcja</div>` : ''}`;
 
     // Key ingredients
@@ -1208,8 +1208,8 @@
               <div class="mini-ring-num">${qScore}<small>/100</small></div>
             </div>` : ''}
             <div class="alt-price-block">
-              ${alt.estimated_price ? `<div class="alt-price">~${esc(alt.estimated_price)}</div>` : ''}
-              ${altPps ? `<div style="font-size:12px;color:var(--text-muted);font-family:'JetBrains Mono',monospace;margin-top:2px">~${altPps.toFixed(2)} PLN / porcja</div>` : ''}
+              ${alt.estimated_price ? `<div class="alt-price">ok. ${esc(alt.estimated_price)}</div>` : ''}
+              ${altPps ? `<div style="font-size:12px;color:var(--text-muted);font-family:'JetBrains Mono',monospace;margin-top:2px">ok. ${altPps.toFixed(2)} PLN / porcja</div>` : ''}
               ${saveBadge}
               <br>
               <a href="${searchUrl(alt.search_query)}" target="_blank" class="btn-search">🔍 Szukaj</a>
@@ -1259,11 +1259,11 @@
             ${item.notes ? `<div class="diy-note">${esc(item.notes)}</div>` : ''}
             ${item.estimated_price_package && item.estimated_servings_in_package ? `
               <div class="diy-price-row">
-                Opakowanie: <span class="hl">~${esc(item.estimated_price_package)}</span>
+                Opakowanie: <span class="hl">ok. ${esc(item.estimated_price_package)}</span>
                 &nbsp;·&nbsp; ${esc(String(item.estimated_servings_in_package))} porcji
-                &nbsp;·&nbsp; <span class="hl" style="color:var(--accent)">~${esc(item.estimated_price_per_serving||'?')}/porcja</span>
+                &nbsp;·&nbsp; <span class="hl" style="color:var(--accent)">ok. ${esc(item.estimated_price_per_serving||'?')}/porcja</span>
               </div>` : item.estimated_price_per_serving ? `
-              <div class="diy-price-row">~<span class="hl" style="color:var(--accent)">${esc(item.estimated_price_per_serving)}</span> / porcja</div>` : ''}
+              <div class="diy-price-row">ok. <span class="hl" style="color:var(--accent)">${esc(item.estimated_price_per_serving)}</span> / porcja</div>` : ''}
           </div>
           <a href="${searchUrl(item.search_query)}" target="_blank" class="btn-search" style="align-self:center">🔍 Szukaj</a>`;
         dc.appendChild(card);
@@ -1282,19 +1282,19 @@
         sum.innerHTML = `
           <div>
             <div class="diy-sum-label">DIY / porcja</div>
-            <div class="diy-sum-val">~${totalServing.toFixed(2)} PLN</div>
+            <div class="diy-sum-val">ok. ${totalServing.toFixed(2)} PLN</div>
           </div>
           <div>
             <div class="diy-sum-label">DIY / 30 dni</div>
-            <div class="diy-sum-val">~${diy30.toFixed(0)} PLN</div>
+            <div class="diy-sum-val">ok. ${diy30.toFixed(0)} PLN</div>
           </div>
           ${orig30 !== null ? `<div>
             <div class="diy-sum-label">Oryginał / 30 dni</div>
-            <div class="diy-sum-val" style="opacity:0.5;font-size:20px">~${orig30.toFixed(0)} PLN</div>
+            <div class="diy-sum-val" style="opacity:0.5;font-size:20px">ok. ${orig30.toFixed(0)} PLN</div>
           </div>` : ''}
           ${totalPkg > 0 ? `<div>
             <div class="diy-sum-label">Jednorazowy koszt</div>
-            <div class="diy-sum-val" style="font-size:20px">~${totalPkg.toFixed(0)} PLN</div>
+            <div class="diy-sum-val" style="font-size:20px">ok. ${totalPkg.toFixed(0)} PLN</div>
           </div>` : ''}
           ${savePln !== null ? `<div class="diy-sum-savings">
             <div class="diy-sum-label">${savePln >= 0 ? 'oszczędzasz / miesiąc' : 'drożej o / miesiąc'}</div>
@@ -1325,11 +1325,12 @@
     document.getElementById('savingsPotential').textContent = alternatives.savings_potential || '';
     document.getElementById('adviceText').textContent       = alternatives.advice || '';
 
-    // Coffee CTA — show when user saves money per serving
-    const coffeeCard = document.getElementById('coffeeCard');
-    const coffeeSaving = document.getElementById('coffeeSaving');
+    // Coffee CTA — zawsze widoczna po analizie
+    const coffeeCard  = document.getElementById('coffeeCard');
+    const coffeeTitle = coffeeCard.querySelector('.coffee-title');
+
+    let bestSavingsText = '';
     if (origPricePerServing && origPricePerServing > 0) {
-      // Best savings: lower of DIY per serving vs cheapest alternative per serving
       let diyTotalServing = 0;
       (alternatives.diy_stack || []).forEach(item => {
         const ps = parseFloat((item.estimated_price_per_serving||'').replace(',','.').replace(/[^0-9.]/g,'')) || 0;
@@ -1343,11 +1344,16 @@
       const bestPps = candidates.length ? Math.min(...candidates) : null;
       const savingPerServing = bestPps ? origPricePerServing - bestPps : null;
       if (savingPerServing && savingPerServing > 0) {
-        const monthlySaving = Math.round(savingPerServing * 30);
-        coffeeSaving.textContent = `~${monthlySaving} PLN`;
-        coffeeCard.style.display = 'flex';
+        bestSavingsText = `ok. ${Math.round(savingPerServing * 30)} PLN`;
       }
     }
+
+    if (bestSavingsText) {
+      coffeeTitle.innerHTML = `Pomogłem Ci zaoszczędzić <span id="coffeeSaving">${bestSavingsText}</span> miesięcznie!`;
+    } else {
+      coffeeTitle.textContent = `SupSaver przeanalizował Twój suplement i znalazł tańsze opcje!`;
+    }
+    coffeeCard.style.display = 'flex';
 
     document.getElementById('resultsWrap').style.display = 'block';
   }
