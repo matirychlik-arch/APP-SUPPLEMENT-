@@ -197,12 +197,17 @@ def _call_claude(system: str, content: str, max_tokens: int = 3000) -> dict:
         messages=[{"role": "user", "content": content}],
     )
     response_text = message.content[0].text.strip()
-    return json.loads(_clean_json(response_text))
+    try:
+        return json.loads(_clean_json(response_text))
+    except json.JSONDecodeError as e:
+        import logging
+        logging.getLogger(__name__).error(f"JSON parse error: {e}\nRaw response (first 500 chars): {response_text[:500]}")
+        raise
 
 
 def generate_alternatives(analysis: AnalysisResult, original_price: Optional[str] = None, user_profile: Optional[str] = None) -> dict:
     """Generate cheaper alternatives, DIY stack, and daily values via two separate calls."""
-    profile_info = f"\n\n>>> PROFIL UŻYTKOWNIKA: {user_profile} <<<\nDostosuj NRV i rekomendacje do tego profilu." if user_profile else ""
+    profile_info = f"\nProfil użytkownika: {user_profile}" if user_profile else ""
     ingredients_summary = ", ".join(
         f"{i.name} {i.amount or ''}{i.unit or ''}".strip()
         for i in analysis.ingredients
