@@ -339,6 +339,7 @@
     .alt-name { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 18px; color: var(--text); }
     .alt-reason { font-size: 13px; color: var(--text-dim); margin-top: 4px; line-height: 1.5; }
     .alt-stores { font-size: 11px; color: var(--text-muted); margin-top: 4px; font-family: 'JetBrains Mono', monospace; }
+    .alt-vegan-note { font-size: 11px; color: #F59E0B; margin-top: 4px; font-family: 'JetBrains Mono', monospace; }
     .alt-price-block { text-align: right; flex-shrink: 0; }
     .alt-price { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 24px; color: var(--text); }
     .alt-savings {
@@ -1077,6 +1078,11 @@
     // Reset state from previous analysis
     document.getElementById('coffeeCard').style.display = 'none';
 
+    // Pre-compute price/serving for use throughout the function
+    const origPrice = parseFloat((product.price||'').replace(',','.').replace(/[^0-9.]/g,'')) || null;
+    const totalServings = parseInt((analysis.total_servings||'').replace(/[^0-9]/g,'')) || null;
+    const origPricePerServing = (origPrice && totalServings) ? origPrice / totalServings : null;
+
     // Product
     document.getElementById('categoryBadge').textContent = analysis.category || '';
     document.getElementById('productName').textContent   = analysis.product_name || product.name;
@@ -1084,11 +1090,15 @@
     document.getElementById('productSummary').textContent = analysis.summary || '';
 
     const priceBlock = document.getElementById('priceBlock');
-    if (product.price) {
-      priceBlock.innerHTML = `
+    priceBlock.innerHTML = `
+      ${product.price ? `
         <div class="product-price-value">${esc(product.price)} <span style="font-size:18px;font-weight:400;color:var(--text-muted)">${esc(product.currency||'PLN')}</span></div>
-        <div class="product-price-label">cena oryginalna</div>`;
-    }
+        <div class="product-price-label">cena za opakowanie</div>` : ''}
+      ${analysis.total_servings ? `
+        <div style="font-size:13px;color:var(--text-muted);margin-top:8px;font-family:'JetBrains Mono',monospace">${esc(analysis.total_servings)} porcji</div>` : ''}
+      ${origPricePerServing ? `
+        <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:22px;color:var(--accent);margin-top:4px">~${origPricePerServing.toFixed(2)} PLN</div>
+        <div class="product-price-label">cena / porcja</div>` : ''}`;
 
     // Key ingredients
     const kc = document.getElementById('keyIngredients');
@@ -1152,10 +1162,6 @@
     }
 
     // Alternatives
-    const origPrice = parseFloat((product.price||'').replace(',','.').replace(/[^0-9.]/g,'')) || null;
-    const totalServings = parseInt((analysis.total_servings||'').replace(/[^0-9]/g,'')) || null;
-    const origPricePerServing = (origPrice && totalServings) ? origPrice / totalServings : null;
-
     const ac = document.getElementById('alternativesList');
     ac.innerHTML = '';
     const alts = alternatives.cheaper_alternatives || [];
@@ -1187,6 +1193,7 @@
             <div class="alt-info">
               <div class="alt-name">${esc(alt.name)}</div>
               <div class="alt-reason">${esc(alt.reason)}</div>
+              ${alt.vegan_note ? `<div class="alt-vegan-note">⚠ ${esc(alt.vegan_note)}</div>` : ''}
               ${alt.stores?.length ? `<div class="alt-stores">Sklepy: ${alt.stores.map(esc).join(' · ')}</div>` : ''}
             </div>
             ${qScore > 0 ? `
@@ -1263,6 +1270,9 @@
       });
 
       if (hasPrices) {
+        const diy30   = totalServing * 30;
+        const orig30  = origPricePerServing ? origPricePerServing * 30 : null;
+        const savePln = orig30 !== null ? Math.round(orig30 - diy30) : null;
         const savePct = (origPricePerServing && totalServing > 0)
           ? Math.round((1 - totalServing / origPricePerServing) * 100)
           : null;
@@ -1271,26 +1281,31 @@
         sum.className = 'diy-summary';
         sum.innerHTML = `
           <div>
-            <div class="diy-sum-label">DIY koszt / porcja</div>
+            <div class="diy-sum-label">DIY / porcja</div>
             <div class="diy-sum-val">~${totalServing.toFixed(2)} PLN</div>
           </div>
+          <div>
+            <div class="diy-sum-label">DIY / 30 dni</div>
+            <div class="diy-sum-val">~${diy30.toFixed(0)} PLN</div>
+          </div>
+          ${orig30 !== null ? `<div>
+            <div class="diy-sum-label">Oryginał / 30 dni</div>
+            <div class="diy-sum-val" style="opacity:0.5;font-size:20px">~${orig30.toFixed(0)} PLN</div>
+          </div>` : ''}
           ${totalPkg > 0 ? `<div>
-            <div class="diy-sum-label">Łączny koszt opakowań</div>
-            <div class="diy-sum-val" style="font-size:22px">~${totalPkg.toFixed(0)} PLN</div>
+            <div class="diy-sum-label">Jednorazowy koszt</div>
+            <div class="diy-sum-val" style="font-size:20px">~${totalPkg.toFixed(0)} PLN</div>
           </div>` : ''}
-          ${origPricePerServing ? `<div>
-            <div class="diy-sum-label">Oryginał / porcja</div>
-            <div class="diy-sum-val" style="opacity:0.5;font-size:20px">~${origPricePerServing.toFixed(2)} PLN</div>
-          </div>` : ''}
-          ${savePct !== null ? `<div class="diy-sum-savings">
-            <div class="diy-sum-label">${savePct >= 0 ? 'oszczędzasz' : 'drożej o'}</div>
-            <div class="diy-sum-savings-pct" ${savePct < 0 ? 'style="color:#ef4444"' : ''}>${savePct >= 0 ? savePct : Math.abs(savePct)}%</div>
+          ${savePln !== null ? `<div class="diy-sum-savings">
+            <div class="diy-sum-label">${savePln >= 0 ? 'oszczędzasz / miesiąc' : 'drożej o / miesiąc'}</div>
+            <div class="diy-sum-savings-pct" ${savePln < 0 ? 'style="color:#ef4444"' : ''}>${Math.abs(savePln)} PLN</div>
+            ${savePct !== null ? `<div style="font-size:14px;opacity:0.6;margin-top:2px">(${Math.abs(savePct)}%)</div>` : ''}
           </div>` : ''}
           ${covScore > 0 ? `<div class="diy-coverage">
             <div class="diy-coverage-val" style="color:${scoreColor(covScore).stroke}">${covScore}%</div>
             <div class="diy-coverage-label">pokrycie<br>składników</div>
           </div>` : ''}
-          <p class="diy-sum-note" style="width:100%;margin-top:0">* Ceny szacunkowe. Koszt opakowań jednorazowy – taniej z każdym miesiącem.</p>`;
+          <p class="diy-sum-note" style="width:100%;margin-top:0">* Ceny szacunkowe. Jednorazowy koszt opakowań — taniej z każdym kolejnym miesiącem.</p>`;
         dc.appendChild(sum);
       }
     }
@@ -1327,8 +1342,8 @@
       const candidates = [diyTotalServing > 0 ? diyTotalServing : null, bestAltPps].filter(Boolean);
       const bestPps = candidates.length ? Math.min(...candidates) : null;
       const savingPerServing = bestPps ? origPricePerServing - bestPps : null;
-      if (savingPerServing && savingPerServing > 0 && totalServings) {
-        const monthlySaving = Math.round(savingPerServing * totalServings);
+      if (savingPerServing && savingPerServing > 0) {
+        const monthlySaving = Math.round(savingPerServing * 30);
         coffeeSaving.textContent = `~${monthlySaving} PLN`;
         coffeeCard.style.display = 'flex';
       }

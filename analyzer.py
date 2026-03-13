@@ -153,7 +153,8 @@ Format:
       "matching_ingredients": ["składnik1"],
       "missing_ingredients": ["brakujący"],
       "quality_score": 72,
-      "quality_verdict": "Dobry"
+      "quality_verdict": "Dobry",
+      "vegan_note": null
     }
   ],
   "diy_stack": [
@@ -178,7 +179,10 @@ Format:
 similarity_score: 100=identyczny, 80-99=brak 1-2 składników, 60-79=główne OK różni się w dodatkach, <60=częściowe podobieństwo.
 quality_score: szacunkowa jakość samego zamiennika (0-100). 80-100=Doskonały, 60-79=Dobry, 40-59=Przeciętny, <40=Słaby. Oceń formy składników, markę, wartość za cenę.
 diy_coverage_score: ile % aktywnych składników oryginału pokrywa DIY stack (0-100). 100=wszystkie pokryte, 0=brak pokrycia.
-Ceny są szacunkowe – zaznacz to w advice."""
+vegan_note: TYLKO gdy alternatywa jest nieweganską wersją (np. tran zamiast alg, D3 z lanoliny zamiast z porostów). Ustaw na krótki string np. "Wersja nieweganiska — zwykle tańsza" lub null.
+Ceny są szacunkowe – zaznacz to w advice.
+
+OPCJA NIEWEGANISKA: Jeśli produkt zawiera składniki w wersji wegańskiej (np. DHA/EPA z alg morskich, witamina D3 z porostów, wegańska K2), zaproponuj w cheaper_alternatives RÓWNIEŻ najtańszą nieweganską alternatywę (np. tran rybny/fish oil dla omega-3 algowego, D3 z lanoliny owczej). Ustaw "vegan_note" na krótki opis różnicy (np. "Wersja nieweganiska — 2-3× tańsza, identyczny profil kwasów omega-3"). Wyjaśnij różnicę w polu "reason". Umieść ją na liście alternatyw jeśli jest wyraźnie tańsza."""
 
 DAILY_VALUES_SYSTEM_PROMPT = """Jesteś dietetykiem. Znasz europejskie normy NRV (rozporządzenie UE 1169/2011) oraz zalecenia dla różnych grup.
 
