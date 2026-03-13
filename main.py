@@ -18,7 +18,7 @@ log = logging.getLogger(__name__)
 load_dotenv()
 
 from scraper import scrape_product
-from analyzer import analyze_supplement, generate_alternatives
+from analyzer import analyze_supplement, generate_alternatives, analyze_quality
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
@@ -51,6 +51,7 @@ class AnalyzeResponse(BaseModel):
     product: dict
     analysis: dict
     alternatives: dict
+    quality: dict
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -79,39 +80,51 @@ async def analyze(request: Request, body: AnalyzeRequest,
         raise HTTPException(status_code=400, detail="URL jest zbyt długi.")
 
     # 1. Scrape product page
-    log.info(f"[1/3] Pobieram stronę produktu: {url}")
+    log.info(f"[1/4] Pobieram stronę produktu: {url}")
     try:
         product = await scrape_product(url)
-        log.info(f"[1/3] OK – produkt: {product.name}")
+        log.info(f"[1/4] OK – produkt: {product.name}, rating: {product.rating}")
     except Exception as e:
-        log.error(f"[1/3] BŁĄD scraping: {e}")
+        log.error(f"[1/4] BŁĄD scraping: {e}")
         raise HTTPException(status_code=422, detail=f"Nie udało się pobrać strony produktu: {str(e)}")
 
     if not product.ingredients_raw and not product.description:
         raise HTTPException(status_code=422, detail="Nie znaleziono informacji o składnikach na podanej stronie.")
 
     # 2. Analyze with Claude
-    log.info("[2/3] Analizuję skład z Claude AI...")
+    log.info("[2/4] Analizuję skład z Claude AI...")
     try:
         analysis = analyze_supplement(product)
-        log.info(f"[2/3] OK – kategoria: {analysis.category}, składniki: {len(analysis.ingredients)}")
+        log.info(f"[2/4] OK – kategoria: {analysis.category}, składniki: {len(analysis.ingredients)}")
     except Exception as e:
-        log.error(f"[2/3] BŁĄD analizy: {e}")
+        log.error(f"[2/4] BŁĄD analizy: {e}")
         raise HTTPException(status_code=500, detail=f"Błąd analizy składników: {str(e)}")
 
     # 3. Generate alternatives
-    log.info("[3/3] Generuję tańsze zamienniki z Claude AI...")
+    log.info("[3/4] Generuję tańsze zamienniki z Claude AI...")
     try:
         alternatives = generate_alternatives(analysis, product.price, body.user_profile)
-        log.info("[3/3] OK – gotowe!")
+        log.info("[3/4] OK – gotowe!")
     except Exception as e:
-        log.error(f"[3/3] BŁĄD alternatyw: {e}")
+        log.error(f"[3/4] BŁĄD alternatyw: {e}")
         raise HTTPException(status_code=500, detail=f"Błąd generowania alternatyw: {str(e)}")
+
+    # 4. Analyze ingredient quality + SupScore
+    log.info("[4/4] Analizuję jakość składników i liczę SupScore...")
+    quality = analyze_quality(
+        analysis,
+        original_price=product.price,
+        rating=product.rating,
+        review_count=product.review_count,
+        user_profile=body.user_profile,
+    )
+    log.info(f"[4/4] OK – SupScore={quality.get('sup_score')}")
 
     return AnalyzeResponse(
         product=product.model_dump(),
         analysis=analysis.model_dump(),
         alternatives=alternatives,
+        quality=quality,
     )
 
 

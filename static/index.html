@@ -538,6 +538,120 @@
     }
     .auth-btn:hover { background:var(--accent-dk); }
     .auth-error { color:#A0522D; font-size:13px; margin-top:10px; display:none; }
+
+    /* ── SUP SCORE ── */
+    .sup-score-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 20px; padding: 28px;
+      margin-bottom: 24px;
+      display: flex; gap: 32px; align-items: flex-start; flex-wrap: wrap;
+    }
+    .sup-score-left {
+      display: flex; flex-direction: column; align-items: center; gap: 10px;
+      flex-shrink: 0;
+    }
+    .sup-score-ring-wrap { position: relative; width: 120px; height: 120px; }
+    .sup-score-ring-wrap svg { transform: rotate(-90deg); }
+    .sup-score-ring-bg  { fill: none; stroke: var(--bg-el); stroke-width: 10; }
+    .sup-score-ring-fill { fill: none; stroke-width: 10; stroke-linecap: round; transition: stroke-dashoffset 0.8s var(--ease); }
+    .sup-score-number {
+      position: absolute; inset: 0;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      font-family: 'Syne', sans-serif; font-weight: 800; font-size: 30px; line-height: 1;
+      color: var(--text);
+    }
+    .sup-score-number small { font-size: 11px; font-weight: 400; color: var(--text-muted); margin-top: 2px; font-family: 'JetBrains Mono', monospace; }
+    .sup-score-verdict {
+      display: inline-block;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase;
+      padding: 4px 12px; border-radius: 100px;
+      border: 1px solid currentColor;
+    }
+    .sup-score-right { flex: 1; min-width: 220px; }
+    .sup-score-summary { font-size: 14px; color: var(--text-dim); line-height: 1.6; margin-bottom: 16px; }
+    .sup-score-sub { margin-bottom: 10px; }
+    .sup-score-sub-header {
+      display: flex; justify-content: space-between; align-items: center;
+      font-size: 12px; color: var(--text-dim); margin-bottom: 4px;
+    }
+    .sup-score-sub-val { font-family: 'JetBrains Mono', monospace; font-weight: 600; color: var(--text); }
+    .sub-track { height: 5px; background: var(--bg-el); border-radius: 3px; overflow: hidden; }
+    .sub-fill  { height: 100%; border-radius: 3px; transition: width 0.6s var(--ease); }
+    .sup-pros-cons { display: flex; gap: 20px; margin-top: 16px; flex-wrap: wrap; }
+    .sup-pros, .sup-cons { flex: 1; min-width: 140px; }
+    .sup-pros-title, .sup-cons-title { font-size: 11px; text-transform: uppercase; letter-spacing: 1.5px; font-family: 'JetBrains Mono', monospace; color: var(--text-muted); margin-bottom: 6px; }
+    .sup-pros li, .sup-cons li { font-size: 13px; color: var(--text-dim); margin-bottom: 4px; list-style: none; padding-left: 18px; position: relative; line-height: 1.4; }
+    .sup-pros li::before { content: '✓'; position: absolute; left: 0; color: #22c55e; font-weight: 700; }
+    .sup-cons li::before { content: '✗'; position: absolute; left: 0; color: #ef4444; font-weight: 700; }
+
+    /* ── QUALITY BADGE on ingredient rows ── */
+    .qual-badge {
+      display: inline-block;
+      font-size: 10px; font-family: 'JetBrains Mono', monospace;
+      padding: 2px 7px; border-radius: 100px;
+      margin-left: 6px; cursor: pointer;
+      vertical-align: middle;
+      transition: opacity 0.2s;
+    }
+    .qual-badge:hover { opacity: 0.75; }
+    .qual-badge-premium { background: rgba(34,197,94,0.12); color: #15803d; border: 1px solid rgba(34,197,94,0.3); }
+    .qual-badge-standard { background: rgba(168,157,147,0.15); color: #6B6259; border: 1px solid var(--border); }
+    .qual-badge-niska    { background: rgba(239,68,68,0.08);  color: #b91c1c; border: 1px solid rgba(239,68,68,0.25); }
+
+    /* ── QUALITY MODAL ── */
+    #qualityModal {
+      position: fixed; inset: 0; z-index: 500;
+      display: flex; align-items: center; justify-content: center;
+      padding: 16px;
+    }
+    .qual-modal-overlay {
+      position: absolute; inset: 0;
+      background: rgba(58,51,46,0.45);
+      backdrop-filter: blur(4px);
+    }
+    .qual-modal-box {
+      position: relative; z-index: 1;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 20px; padding: 28px;
+      width: 100%; max-width: 640px;
+      max-height: 80vh; overflow-y: auto;
+      box-shadow: 0 16px 48px rgba(0,0,0,0.12);
+    }
+    .qual-modal-header {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 20px;
+    }
+    .qual-modal-title { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 20px; }
+    .qual-modal-close {
+      background: var(--bg-el); border: none; cursor: pointer;
+      width: 32px; height: 32px; border-radius: 50%;
+      font-size: 16px; color: var(--text-dim);
+      display: flex; align-items: center; justify-content: center;
+      transition: background 0.2s;
+    }
+    .qual-modal-close:hover { background: var(--border); }
+    .qual-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .qual-table th {
+      text-align: left; font-size: 10px; text-transform: uppercase; letter-spacing: 1.5px;
+      font-family: 'JetBrains Mono', monospace; color: var(--text-muted);
+      padding: 6px 8px; border-bottom: 1px solid var(--border);
+    }
+    .qual-table td { padding: 10px 8px; border-bottom: 1px solid var(--bg-el); vertical-align: top; }
+    .qual-table tr:last-child td { border-bottom: none; }
+    .qual-table tr:hover td { background: var(--bg-el); }
+    .qual-td-name { font-weight: 600; color: var(--text); }
+    .qual-td-form { color: var(--text-dim); font-style: italic; }
+    .qual-td-reason { color: var(--text-muted); font-size: 12px; }
+    .bio-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 4px; }
+
+    @media(max-width:600px){
+      .sup-score-card { flex-direction: column; padding: 20px 16px; gap: 20px; }
+      .sup-score-left { flex-direction: row; gap: 20px; align-items: center; }
+      .qual-modal-box { padding: 20px 16px; border-radius: 16px; }
+    }
   </style>
 </head>
 <body>
@@ -629,6 +743,10 @@
       <div class="product-price-block" id="priceBlock"></div>
     </div>
 
+    <!-- SupScore -->
+    <p class="section-label" id="supScoreLabel" style="display:none">// SupScore – ocena jakości produktu</p>
+    <div class="sup-score-card" id="supScoreCard" style="display:none"></div>
+
     <!-- Ingredients -->
     <div class="two-col">
       <div class="panel">
@@ -669,6 +787,18 @@
       </div>
     </div>
 
+  </div>
+</div>
+
+<!-- Quality Modal -->
+<div id="qualityModal" style="display:none">
+  <div class="qual-modal-overlay" onclick="closeQualityModal()"></div>
+  <div class="qual-modal-box">
+    <div class="qual-modal-header">
+      <h3 class="qual-modal-title">Jakość składników</h3>
+      <button class="qual-modal-close" onclick="closeQualityModal()">✕</button>
+    </div>
+    <div id="qualityModalBody"></div>
   </div>
 </div>
 
@@ -752,7 +882,130 @@
     return { fill: '#A89D93', text: '#6B6259', label: 'Słabe podobieństwo' };
   }
 
-  function renderResults({ product, analysis, alternatives }) {
+  // ── SupScore helpers ──
+  function scoreColor(score) {
+    if (score >= 80) return { stroke: '#22c55e', text: '#15803d', bg: 'rgba(34,197,94,0.12)', verdict: 'Doskonały' };
+    if (score >= 60) return { stroke: '#f59e0b', text: '#b45309', bg: 'rgba(245,158,11,0.12)', verdict: 'Dobry' };
+    if (score >= 40) return { stroke: '#F5A623', text: '#C47C0A', bg: 'rgba(245,166,35,0.12)', verdict: 'Przeciętny' };
+    return { stroke: '#ef4444', text: '#b91c1c', bg: 'rgba(239,68,68,0.1)', verdict: 'Słaby' };
+  }
+
+  function bioColor(bio) {
+    if (!bio) return '#A89D93';
+    const b = bio.toLowerCase();
+    if (b === 'wysoka') return '#22c55e';
+    if (b === 'średnia') return '#f59e0b';
+    return '#ef4444';
+  }
+
+  let _qualityData = [];
+
+  function renderSupScore(quality) {
+    const card  = document.getElementById('supScoreCard');
+    const label = document.getElementById('supScoreLabel');
+    if (!quality || quality.sup_score == null) { card.style.display = 'none'; label.style.display = 'none'; return; }
+
+    const score = parseInt(quality.sup_score) || 0;
+    const c     = scoreColor(score);
+    const R = 44, CX = 54, CY = 54, circ = 2 * Math.PI * R;
+    const offset = circ * (1 - score / 100);
+
+    const iScore = parseInt(quality.ingredient_score) || 0;
+    const vScore = parseInt(quality.value_score) || 0;
+    const bScore = parseInt(quality.brand_score) || 0;
+
+    const subBar = (label, val) => `
+      <div class="sup-score-sub">
+        <div class="sup-score-sub-header">
+          <span>${esc(label)}</span>
+          <span class="sup-score-sub-val">${val}/100</span>
+        </div>
+        <div class="sub-track"><div class="sub-fill" style="width:${Math.min(val,100)}%;background:${scoreColor(val).stroke}"></div></div>
+      </div>`;
+
+    card.innerHTML = `
+      <div class="sup-score-left">
+        <div class="sup-score-ring-wrap">
+          <svg viewBox="0 0 108 108" width="120" height="120">
+            <circle class="sup-score-ring-bg"   cx="${CX}" cy="${CY}" r="${R}"/>
+            <circle class="sup-score-ring-fill"  cx="${CX}" cy="${CY}" r="${R}"
+              stroke="${c.stroke}"
+              stroke-dasharray="${circ.toFixed(1)}"
+              stroke-dashoffset="${offset.toFixed(1)}"/>
+          </svg>
+          <div class="sup-score-number">${score}<small>/100</small></div>
+        </div>
+        <span class="sup-score-verdict" style="color:${c.text};border-color:${c.text};background:${c.bg}">${esc(quality.verdict || scoreColor(score).verdict)}</span>
+      </div>
+      <div class="sup-score-right">
+        ${quality.quality_summary ? `<p class="sup-score-summary">${esc(quality.quality_summary)}</p>` : ''}
+        ${subBar('Jakość składników', iScore)}
+        ${subBar('Wartość za cenę', vScore)}
+        ${subBar('Reputacja marki', bScore)}
+        <div class="sup-pros-cons">
+          ${(quality.pros||[]).length ? `<div class="sup-pros">
+            <div class="sup-pros-title">Mocne strony</div>
+            <ul>${quality.pros.map(p=>`<li>${esc(p)}</li>`).join('')}</ul>
+          </div>` : ''}
+          ${(quality.cons||[]).length ? `<div class="sup-cons">
+            <div class="sup-cons-title">Słabe strony</div>
+            <ul>${quality.cons.map(p=>`<li>${esc(p)}</li>`).join('')}</ul>
+          </div>` : ''}
+        </div>
+      </div>`;
+
+    label.style.display = 'block';
+    card.style.display  = 'flex';
+  }
+
+  function openQualityModal() {
+    const modal = document.getElementById('qualityModal');
+    const body  = document.getElementById('qualityModalBody');
+    if (!_qualityData.length) {
+      body.innerHTML = '<p style="color:var(--text-muted);font-size:14px">Brak danych o jakości składników.</p>';
+    } else {
+      body.innerHTML = `
+        <table class="qual-table">
+          <thead>
+            <tr>
+              <th>Składnik</th>
+              <th>Forma</th>
+              <th>Jakość</th>
+              <th>Biodostu.</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${_qualityData.map(q => {
+              const tierClass = q.quality_tier === 'premium' ? 'qual-badge-premium' : q.quality_tier === 'niska' ? 'qual-badge-niska' : 'qual-badge-standard';
+              return `<tr>
+                <td>
+                  <div class="qual-td-name">${esc(q.name)}</div>
+                  ${q.branded_form ? `<div style="font-size:11px;color:var(--accent-dk);margin-top:2px">${esc(q.branded_form)}</div>` : ''}
+                  ${q.quality_reason ? `<div class="qual-td-reason">${esc(q.quality_reason)}</div>` : ''}
+                </td>
+                <td class="qual-td-form">${esc(q.form || '—')}</td>
+                <td><span class="qual-badge ${tierClass}">${esc(q.quality_tier || '—')}</span></td>
+                <td>
+                  <span class="bio-dot" style="background:${bioColor(q.bioavailability)}"></span>
+                  ${esc(q.bioavailability || '—')}
+                </td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>`;
+    }
+    modal.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeQualityModal() {
+    document.getElementById('qualityModal').style.display = 'none';
+    document.body.style.overflow = '';
+  }
+
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeQualityModal(); });
+
+  function renderResults({ product, analysis, alternatives, quality }) {
     // Product
     document.getElementById('categoryBadge').textContent = analysis.category || '';
     document.getElementById('productName').textContent   = analysis.product_name || product.name;
@@ -776,14 +1029,27 @@
       kc.appendChild(a);
     });
 
-    // Full ingredients
+    // SupScore
+    _qualityData = (quality && quality.ingredient_qualities) || [];
+    renderSupScore(quality || {});
+
+    // Full ingredients (with quality badges)
+    const qualMap = {};
+    _qualityData.forEach(q => { qualMap[q.name.toLowerCase()] = q; });
+
     const fc = document.getElementById('fullIngredients');
     fc.innerHTML = '';
     (analysis.ingredients || []).forEach(i => {
       const row = document.createElement('div');
       row.className = 'ing-row';
       const amount = [i.amount, i.unit, i.daily_value ? `(${i.daily_value})` : null].filter(Boolean).join(' ');
-      row.innerHTML = `<span class="ing-name">${esc(i.name)}</span><span class="ing-amount">${esc(amount)}</span>`;
+      const q = qualMap[i.name.toLowerCase()];
+      let badge = '';
+      if (q && q.quality_tier) {
+        const cls = q.quality_tier === 'premium' ? 'qual-badge-premium' : q.quality_tier === 'niska' ? 'qual-badge-niska' : 'qual-badge-standard';
+        badge = `<span class="qual-badge ${cls}" onclick="openQualityModal()" title="Kliknij po szczegóły jakości">${esc(q.quality_tier)}</span>`;
+      }
+      row.innerHTML = `<span class="ing-name">${esc(i.name)}${badge}</span><span class="ing-amount">${esc(amount)}</span>`;
       fc.appendChild(row);
     });
 
@@ -957,8 +1223,9 @@
     const steps = [
       [3000, 'Claude AI analizuje skład suplementu...'],
       [12000,'Szukam tańszych zamienników...'],
-      [22000,'Generuję pełną analizę i wartości NRV...'],
-      [34000,'Jeszcze chwila...'],
+      [22000,'Generuję wartości NRV...'],
+      [34000,'Oceniam jakość składników i liczę SupScore...'],
+      [44000,'Jeszcze chwila...'],
     ];
     const timers = steps.map(([ms,msg]) => setTimeout(() => setStatus(msg), ms));
 

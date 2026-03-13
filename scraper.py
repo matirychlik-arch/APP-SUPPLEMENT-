@@ -16,6 +16,8 @@ class ProductInfo(BaseModel):
     description: Optional[str] = None
     serving_size: Optional[str] = None
     servings_per_container: Optional[str] = None
+    rating: Optional[str] = None
+    review_count: Optional[str] = None
 
 
 HEADERS = {
@@ -36,6 +38,50 @@ def _detect_currency(text: str) -> str:
     if "£" in text or "GBP" in text:
         return "GBP"
     return "PLN"
+
+
+def _extract_rating_from_json_ld(soup: BeautifulSoup) -> tuple[Optional[str], Optional[str]]:
+    """Extract aggregateRating from JSON-LD structured data."""
+    for tag in soup.find_all("script", type="application/ld+json"):
+        try:
+            data = json.loads(tag.string or "")
+        except Exception:
+            continue
+        items = data if isinstance(data, list) else [data]
+        for item in items:
+            agg = item.get("aggregateRating")
+            if agg:
+                rating = str(agg.get("ratingValue", "") or "").strip() or None
+                count = str(agg.get("reviewCount", "") or agg.get("ratingCount", "") or "").strip() or None
+                if rating:
+                    return rating, count
+    return None, None
+
+
+def _extract_rating(soup: BeautifulSoup) -> tuple[Optional[str], Optional[str]]:
+    """Try JSON-LD first, then itemprop, then CSS selectors."""
+    rating, count = _extract_rating_from_json_ld(soup)
+    if rating:
+        return rating, count
+
+    # itemprop
+    r_el = soup.find(attrs={"itemprop": "ratingValue"})
+    c_el = soup.find(attrs={"itemprop": "reviewCount"}) or soup.find(attrs={"itemprop": "ratingCount"})
+    if r_el:
+        rating = r_el.get("content") or r_el.get_text(strip=True)
+        count = (c_el.get("content") or c_el.get_text(strip=True)) if c_el else None
+        return rating or None, count or None
+
+    # CSS selectors
+    for sel in ["[data-rating]", ".rating-value", ".average-rating", ".star-rating"]:
+        el = soup.select_one(sel)
+        if el:
+            val = el.get("data-rating") or el.get_text(strip=True)
+            match = re.search(r"\d+\.?\d*", val)
+            if match:
+                return match.group(), None
+
+    return None, None
 
 
 def _extract_price_from_json_ld(soup: BeautifulSoup) -> tuple[Optional[str], Optional[str]]:
@@ -177,10 +223,11 @@ async def scrape_product(url: str) -> ProductInfo:
 
     soup = BeautifulSoup(html, "lxml")
 
-    # Extract price BEFORE removing scripts (JSON-LD is inside <script> tags)
+    # Extract price and rating BEFORE removing scripts (JSON-LD is inside <script> tags)
     name = _extract_name(soup, url)
     brand = _extract_brand(soup)
     price, currency = _extract_price(soup)
+    rating, review_count = _extract_rating(soup)
 
     # Now remove scripts and styles for cleaner text extraction
     for tag in soup(["script", "style", "noscript"]):
@@ -204,4 +251,6 @@ async def scrape_product(url: str) -> ProductInfo:
         currency=currency,
         ingredients_raw=ingredients_raw,
         description=description,
+        rating=rating,
+        review_count=review_count,
     )

@@ -188,6 +188,54 @@ Format:
 Jeśli składnik nie ma normy NRV (np. ekstrakty ziołowe, aminokwasy bez normy), pomiń go."""
 
 
+QUALITY_SYSTEM_PROMPT = """Jesteś ekspertem farmaceutycznym i technologiem żywności. Specjalizujesz się w ocenie jakości form składników suplementów diety.
+
+Odpowiadasz WYŁĄCZNIE w formacie JSON. Bądź zwięzły i konkretny.
+
+Twoje zadanie:
+1. Dla każdego składnika oceń jego formę chemiczną i jakość:
+   - Rozpoznaj czy to forma premium (np. chelaty, methylowane witaminy) czy tania/gorsza (np. tlenki, cyanocobalamina)
+   - Zidentyfikuj patentowane formy: Creapure®, Albion®/TRAACS®, Ferrochel®, Quatrefolic®, MenaQ7®, PureWay-C®, Carnipure®, HMB®, Bioperine®, Ashwagandha KSM-66®/Sensoril®, itp.
+   - Oceń bioprzyswajalnością
+
+2. Oblicz SupScore (0-100) jako ważoną ocenę:
+   - ingredient_score (50%): jakość form składników, obecność patentowanych form
+   - value_score (30%): wartość za cenę vs rynek (0=drogi za to co daje, 100=świetna wartość)
+   - brand_score (20%): reputacja marki (znana marka premium=80-100, no-name=30-50, mała marka=50-70)
+
+3. Jeśli dostępny rating ze strony, uwzględnij go jako dodatkowy sygnał dla value_score.
+
+Progi SupScore:
+- 80-100: "Doskonały" (premium formy, dobra wartość)
+- 60-79: "Dobry" (mix form, przyzwoita wartość)
+- 40-59: "Przeciętny" (głównie tanie formy lub wysoka cena za jakość)
+- <40: "Słaby" (niskiej jakości formy, słaba wartość)
+
+Format odpowiedzi:
+{
+  "ingredient_qualities": [
+    {
+      "name": "nazwa składnika",
+      "form": "forma chemiczna (np. 'glicynian magnezu', 'methylcobalamina', 'tlenek magnezu')",
+      "quality_tier": "premium|standard|niska",
+      "bioavailability": "wysoka|średnia|niska",
+      "branded_form": "Creapure® lub null",
+      "quality_reason": "1 zdanie uzasadnienia"
+    }
+  ],
+  "sup_score": 78,
+  "ingredient_score": 82,
+  "value_score": 65,
+  "brand_score": 75,
+  "verdict": "Dobry",
+  "pros": ["zaleta 1", "zaleta 2"],
+  "cons": ["wada 1", "wada 2"],
+  "quality_summary": "2 zdania podsumowania jakości produktu po polsku"
+}
+
+Oceniaj tylko składniki aktywne (nie pomocnicze jak stearyn magnezu, celuloza, itp.). Maksymalnie 3 pros i 3 cons."""
+
+
 def _call_claude(system: str, content: str, max_tokens: int = 3000) -> dict:
     client = anthropic.Anthropic()
     message = client.messages.create(
@@ -203,6 +251,53 @@ def _call_claude(system: str, content: str, max_tokens: int = 3000) -> dict:
         import logging
         logging.getLogger(__name__).error(f"JSON parse error: {e}\nRaw response (first 500 chars): {response_text[:500]}")
         raise
+
+
+def analyze_quality(
+    analysis: AnalysisResult,
+    original_price: Optional[str] = None,
+    rating: Optional[str] = None,
+    review_count: Optional[str] = None,
+    user_profile: Optional[str] = None,
+) -> dict:
+    """Analyze ingredient quality and calculate SupScore via one Claude call."""
+    log = __import__('logging').getLogger(__name__)
+
+    ingredients_summary = ", ".join(
+        f"{i.name} {i.amount or ''}{i.unit or ''}".strip()
+        for i in analysis.ingredients
+    )
+    content_parts = [
+        f"Suplement: {analysis.product_name} ({analysis.brand or 'nieznana marka'})",
+        f"Kategoria: {analysis.category}",
+        f"Cena: {original_price or 'nieznana'}",
+        f"Wszystkie składniki: {ingredients_summary}",
+        f"Kluczowe składniki aktywne: {', '.join(analysis.key_active_ingredients)}",
+    ]
+    if rating:
+        review_info = f"{rating}/5" + (f" ({review_count} opinii)" if review_count else "")
+        content_parts.append(f"Ocena klientów: {review_info}")
+    if user_profile:
+        content_parts.append(f"Profil użytkownika: {user_profile}")
+
+    content = "\n".join(content_parts)
+    try:
+        result = _call_claude(QUALITY_SYSTEM_PROMPT, content, max_tokens=3000)
+        log.info(f"[analyze_quality] OK, sup_score={result.get('sup_score')}")
+        return result
+    except Exception as e:
+        log.error(f"[analyze_quality] FAILED: {e}")
+        return {
+            "ingredient_qualities": [],
+            "sup_score": None,
+            "ingredient_score": None,
+            "value_score": None,
+            "brand_score": None,
+            "verdict": None,
+            "pros": [],
+            "cons": [],
+            "quality_summary": None,
+        }
 
 
 def generate_alternatives(analysis: AnalysisResult, original_price: Optional[str] = None, user_profile: Optional[str] = None) -> dict:
