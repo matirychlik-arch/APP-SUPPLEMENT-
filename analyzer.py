@@ -131,6 +131,8 @@ Jeśli podano profil użytkownika (płeć, wiek, aktywność), PERSONALIZUJ reko
 
 Odpowiadasz WYŁĄCZNIE w formacie JSON. Bądź zwięzły – max 3 alternatywy, max 6 składników DIY.
 
+WAŻNE: Sortuj cheaper_alternatives malejąco wg similarity_score — najbardziej podobne produkty PIERWSZE. Priorytetem jest znalezienie produktu jak najbardziej zbliżonego składem za mniejszą cenę.
+
 WAŻNE: Dla każdej alternatywy ORAZ każdego składnika DIY podaj:
 - estimated_price_package: szacunkowa cena opakowania w PLN (np. "45 PLN")
 - estimated_servings_in_package: ile porcji w opakowaniu (np. 60)
@@ -159,13 +161,14 @@ Format:
   ],
   "diy_stack": [
     {
-      "ingredient": "nazwa",
+      "ingredient": "nazwa składnika",
       "amount_needed": "dawka na porcję",
-      "search_query": "fraza",
-      "estimated_price_package": "35 PLN",
-      "estimated_servings_in_package": 60,
-      "estimated_price_per_serving": "0.58 PLN",
-      "notes": "krótka uwaga"
+      "search_query": "fraza (wersja domyślna)",
+      "estimated_price_package": "89 PLN",
+      "estimated_servings_in_package": 30,
+      "estimated_price_per_serving": "2.97 PLN",
+      "notes": "krótka uwaga lub 'wersja wegańska'",
+      "alternative_option": null
     }
   ],
   "diy_coverage_score": 85,
@@ -180,9 +183,13 @@ similarity_score: 100=identyczny, 80-99=brak 1-2 składników, 60-79=główne OK
 quality_score: szacunkowa jakość samego zamiennika (0-100). 80-100=Doskonały, 60-79=Dobry, 40-59=Przeciętny, <40=Słaby. Oceń formy składników, markę, wartość za cenę.
 diy_coverage_score: ile % aktywnych składników oryginału pokrywa DIY stack (0-100). 100=wszystkie pokryte, 0=brak pokrycia.
 vegan_note: TYLKO gdy alternatywa jest nieweganską wersją (np. tran zamiast alg, D3 z lanoliny zamiast z porostów). Ustaw na krótki string np. "Wersja nieweganiska — zwykle tańsza" lub null.
+alternative_option: OPCJONALNE — używaj TYLKO gdy składnik DIY ma wyraźnie tańszą nieweganską wersję (np. omega-3 z alg vs tran rybny, D3 z porostów vs D3 z lanoliny). Struktura:
+  { "name": "Tran rybny omega-3", "search_query": "...", "estimated_price_package": "35 PLN", "estimated_servings_in_package": 60, "estimated_price_per_serving": "0.58 PLN", "notes": "Wersja nieweganiska — 3-4× tańsza, identyczny efekt" }
+  Dla większości składników ustaw alternative_option = null.
+  Przy obliczaniu kosztów w diy_coverage_score uwzględnij najtańszą dostępną opcję.
 Ceny są szacunkowe – zaznacz to w advice.
 
-OPCJA NIEWEGANISKA: Jeśli produkt zawiera składniki w wersji wegańskiej (np. DHA/EPA z alg morskich, witamina D3 z porostów, wegańska K2), zaproponuj w cheaper_alternatives RÓWNIEŻ najtańszą nieweganską alternatywę (np. tran rybny/fish oil dla omega-3 algowego, D3 z lanoliny owczej). Ustaw "vegan_note" na krótki opis różnicy (np. "Wersja nieweganiska — 2-3× tańsza, identyczny profil kwasów omega-3"). Wyjaśnij różnicę w polu "reason". Umieść ją na liście alternatyw jeśli jest wyraźnie tańsza."""
+OPCJA NIEWEGANISKA w cheaper_alternatives: Jeśli produkt zawiera składniki w wersji wegańskiej (np. DHA/EPA z alg morskich, witamina D3 z porostów, wegańska K2), zaproponuj w cheaper_alternatives RÓWNIEŻ najtańszą nieweganską alternatywę (np. tran rybny/fish oil dla omega-3 algowego, D3 z lanoliny owczej). Ustaw "vegan_note" na krótki opis różnicy. Wyjaśnij różnicę w polu "reason". Umieść ją na liście alternatyw jeśli jest wyraźnie tańsza."""
 
 DAILY_VALUES_SYSTEM_PROMPT = """Jesteś dietetykiem. Znasz europejskie normy NRV (rozporządzenie UE 1169/2011) oraz zalecenia dla różnych grup.
 
@@ -265,6 +272,7 @@ def _call_claude(system: str, content: str, max_tokens: int = 3000) -> dict:
     message = client.messages.create(
         model="claude-sonnet-4-6",
         max_tokens=max_tokens,
+        temperature=0,
         system=system,
         messages=[{"role": "user", "content": content}],
     )

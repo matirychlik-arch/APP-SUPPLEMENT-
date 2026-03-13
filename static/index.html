@@ -340,6 +340,14 @@
     .alt-reason { font-size: 13px; color: var(--text-dim); margin-top: 4px; line-height: 1.5; }
     .alt-stores { font-size: 11px; color: var(--text-muted); margin-top: 4px; font-family: 'JetBrains Mono', monospace; }
     .alt-vegan-note { font-size: 11px; color: #F59E0B; margin-top: 4px; font-family: 'JetBrains Mono', monospace; }
+    .savings-hero { background: linear-gradient(135deg, rgba(114,216,86,0.1), rgba(4,147,90,0.08)); border: 1px solid rgba(114,216,86,0.4); border-radius: 16px; padding: 20px 24px; margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+    .savings-hero-label { font-size: 12px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; font-family: 'JetBrains Mono', monospace; }
+    .savings-hero-main  { font-family: 'Syne', sans-serif; font-weight: 800; font-size: clamp(20px,3vw,30px); color: var(--accent); line-height: 1.1; }
+    .savings-hero-sub   { font-size: 13px; color: var(--text-dim); margin-top: 4px; }
+    .diy-opt { margin-top: 8px; }
+    .diy-opt-label { font-size: 11px; font-family: 'JetBrains Mono', monospace; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+    .diy-opt-nonvegan { color: #F59E0B; }
+    .diy-opt-divider { font-size: 11px; color: var(--text-muted); text-align: center; margin: 10px 0 4px; border-top: 1px solid var(--bg-el); padding-top: 10px; }
     .alt-price-block { text-align: right; flex-shrink: 0; }
     .alt-price { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 24px; color: var(--text); }
     .alt-savings {
@@ -799,6 +807,9 @@
       <div class="product-price-block" id="priceBlock"></div>
     </div>
 
+    <!-- Savings Hero -->
+    <div id="savingsHero" style="display:none"></div>
+
     <!-- SupScore -->
     <p class="section-label" id="supScoreLabel" style="display:none">// SupScore – ocena jakości produktu</p>
     <div class="sup-score-card" id="supScoreCard" style="display:none"></div>
@@ -1100,6 +1111,38 @@
         <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:22px;color:var(--accent);margin-top:4px">ok. ${origPricePerServing.toFixed(2)} PLN</div>
         <div class="product-price-label">cena / porcja</div>` : ''}`;
 
+    // Savings Hero
+    const heroEl = document.getElementById('savingsHero');
+    heroEl.style.display = 'none';
+    heroEl.className = '';
+    heroEl.innerHTML = '';
+    {
+      const altsSortedH = [...(alternatives.cheaper_alternatives || [])]
+        .sort((a,b) => (parseInt(b.similarity_score)||0) - (parseInt(a.similarity_score)||0));
+      const bAlt = altsSortedH[0];
+      if (bAlt) {
+        const bPps   = parseFloat((bAlt.estimated_price_per_serving||'').replace(',','.').replace(/[^0-9.]/g,'')) || null;
+        const sPlnH  = (origPricePerServing && bPps) ? Math.round((origPricePerServing - bPps) * 30) : null;
+        const sPctH  = (origPricePerServing && bPps) ? Math.round((1 - bPps / origPricePerServing) * 100) : null;
+        const simH   = parseInt(bAlt.similarity_score) || 0;
+        let mainText = sPlnH !== null && sPlnH > 0 ? `taniej ok. ${sPlnH} PLN / miesiąc`
+                     : bAlt.estimated_price ? `ok. ${esc(bAlt.estimated_price)}`
+                     : `${simH}% podobny zamiennik`;
+        let subParts = [];
+        if (sPctH !== null && sPctH > 0) subParts.push(`${sPctH}% taniej`);
+        if (simH > 0) subParts.push(`${simH}% podobny do Twojego suplementu`);
+        heroEl.className = 'savings-hero';
+        heroEl.innerHTML = `
+          <div>
+            <div class="savings-hero-label">Najlepszy zamiennik</div>
+            <div class="savings-hero-main">${mainText}</div>
+            ${subParts.length ? `<div class="savings-hero-sub">${subParts.join(' · ')}</div>` : ''}
+          </div>
+          <a href="#alternativesList" class="btn-search" style="align-self:center">↓ Zamienniki</a>`;
+        heroEl.style.display = 'flex';
+      }
+    }
+
     // Key ingredients
     const kc = document.getElementById('keyIngredients');
     kc.innerHTML = '';
@@ -1164,7 +1207,8 @@
     // Alternatives
     const ac = document.getElementById('alternativesList');
     ac.innerHTML = '';
-    const alts = alternatives.cheaper_alternatives || [];
+    const alts = (alternatives.cheaper_alternatives || [])
+      .sort((a, b) => (parseInt(b.similarity_score)||0) - (parseInt(a.similarity_score)||0));
     if (!alts.length) {
       ac.innerHTML = '<p style="font-size:13px;color:var(--text-muted);margin-bottom:24px">Brak propozycji zamienników.</p>';
     } else {
@@ -1248,24 +1292,51 @@
         if (ps > 0) { totalServing += ps; hasPrices = true; }
         if (pkg > 0) totalPkg += pkg;
 
+        const altOpt = item.alternative_option || null;
+
+        const renderDiyPriceRow = (opt) => opt.estimated_price_package && opt.estimated_servings_in_package ? `
+              <div class="diy-price-row">
+                Opakowanie: <span class="hl">ok. ${esc(opt.estimated_price_package)}</span>
+                &nbsp;·&nbsp; ${esc(String(opt.estimated_servings_in_package))} porcji
+                &nbsp;·&nbsp; <span class="hl" style="color:var(--accent)">ok. ${esc(opt.estimated_price_per_serving||'?')}/porcja</span>
+              </div>` : opt.estimated_price_per_serving ? `
+              <div class="diy-price-row">ok. <span class="hl" style="color:var(--accent)">${esc(opt.estimated_price_per_serving)}</span> / porcja</div>` : '';
+
         const card = document.createElement('div');
         card.className = 'diy-card';
-        card.innerHTML = `
-          <div class="diy-body">
-            <div style="display:flex;align-items:center;flex-wrap:wrap">
-              <span class="diy-name">${esc(item.ingredient)}</span>
-              ${item.amount_needed ? `<span class="diy-dose">${esc(item.amount_needed)}</span>` : ''}
+
+        if (altOpt) {
+          // Two-option card (e.g. vegan + non-vegan)
+          card.innerHTML = `
+            <div class="diy-body" style="flex:1">
+              <div style="display:flex;align-items:center;flex-wrap:wrap">
+                <span class="diy-name">${esc(item.ingredient)}</span>
+                ${item.amount_needed ? `<span class="diy-dose">${esc(item.amount_needed)}</span>` : ''}
+              </div>
+              <div class="diy-opt">
+                <div class="diy-opt-label">${esc(item.notes || 'Opcja 1')}</div>
+                ${renderDiyPriceRow(item)}
+                <a href="${searchUrl(item.search_query)}" target="_blank" class="btn-search" style="margin-top:6px;display:inline-flex">🔍 Szukaj</a>
+              </div>
+              <div class="diy-opt-divider">— lub —</div>
+              <div class="diy-opt">
+                <div class="diy-opt-label diy-opt-nonvegan">${esc(altOpt.notes || 'Opcja 2')}</div>
+                ${renderDiyPriceRow(altOpt)}
+                <a href="${searchUrl(altOpt.search_query)}" target="_blank" class="btn-search" style="margin-top:6px;display:inline-flex">🔍 Szukaj</a>
+              </div>
+            </div>`;
+        } else {
+          card.innerHTML = `
+            <div class="diy-body">
+              <div style="display:flex;align-items:center;flex-wrap:wrap">
+                <span class="diy-name">${esc(item.ingredient)}</span>
+                ${item.amount_needed ? `<span class="diy-dose">${esc(item.amount_needed)}</span>` : ''}
+              </div>
+              ${item.notes ? `<div class="diy-note">${esc(item.notes)}</div>` : ''}
+              ${renderDiyPriceRow(item)}
             </div>
-            ${item.notes ? `<div class="diy-note">${esc(item.notes)}</div>` : ''}
-            ${item.estimated_price_package && item.estimated_servings_in_package ? `
-              <div class="diy-price-row">
-                Opakowanie: <span class="hl">ok. ${esc(item.estimated_price_package)}</span>
-                &nbsp;·&nbsp; ${esc(String(item.estimated_servings_in_package))} porcji
-                &nbsp;·&nbsp; <span class="hl" style="color:var(--accent)">ok. ${esc(item.estimated_price_per_serving||'?')}/porcja</span>
-              </div>` : item.estimated_price_per_serving ? `
-              <div class="diy-price-row">ok. <span class="hl" style="color:var(--accent)">${esc(item.estimated_price_per_serving)}</span> / porcja</div>` : ''}
-          </div>
-          <a href="${searchUrl(item.search_query)}" target="_blank" class="btn-search" style="align-self:center">🔍 Szukaj</a>`;
+            <a href="${searchUrl(item.search_query)}" target="_blank" class="btn-search" style="align-self:center">🔍 Szukaj</a>`;
+        }
         dc.appendChild(card);
       });
 
@@ -1299,7 +1370,7 @@
           ${savePln !== null ? `<div class="diy-sum-savings">
             <div class="diy-sum-label">${savePln >= 0 ? 'oszczędzasz / miesiąc' : 'drożej o / miesiąc'}</div>
             <div class="diy-sum-savings-pct" ${savePln < 0 ? 'style="color:#ef4444"' : ''}>${Math.abs(savePln)} PLN</div>
-            ${savePct !== null ? `<div style="font-size:14px;opacity:0.6;margin-top:2px">(${Math.abs(savePct)}%)</div>` : ''}
+            ${savePct !== null ? `<div class="diy-sum-savings-pct" style="font-size:32px;margin-top:-6px;${savePln < 0 ? 'color:#ef4444' : ''}">${Math.abs(savePct)}%</div>` : ''}
           </div>` : ''}
           ${covScore > 0 ? `<div class="diy-coverage">
             <div class="diy-coverage-val" style="color:${scoreColor(covScore).stroke}">${covScore}%</div>
