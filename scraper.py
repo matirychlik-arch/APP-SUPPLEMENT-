@@ -223,8 +223,37 @@ def _extract_brand(soup: BeautifulSoup) -> Optional[str]:
     return None
 
 
+async def _fetch_via_scraperapi(url: str, api_key: str) -> str:
+    """Fetch via ScraperAPI — bypasses Cloudflare/bot protection."""
+    import urllib.parse
+    scraper_url = (
+        f"http://api.scraperapi.com?api_key={api_key}"
+        f"&url={urllib.parse.quote(url, safe='')}&country_code=pl"
+    )
+    async with httpx.AsyncClient(timeout=60, follow_redirects=True) as client:
+        resp = await client.get(scraper_url)
+        resp.raise_for_status()
+        return resp.text
+
+
 async def _fetch_html(url: str) -> str:
-    """Fetch page HTML, using curl_cffi (Chrome impersonation) first, httpx as fallback."""
+    """Fetch page HTML.
+
+    Order of attempts:
+    1. ScraperAPI (if SCRAPERAPI_KEY env var set) — used for iHerb and other CF-protected sites
+    2. curl_cffi with Chrome impersonation
+    3. httpx fallback
+    """
+    scraperapi_key = os.getenv("SCRAPERAPI_KEY")
+
+    if scraperapi_key:
+        try:
+            html = await _fetch_via_scraperapi(url, scraperapi_key)
+            log.info("ScraperAPI OK")
+            return html
+        except Exception as e:
+            log.warning(f"ScraperAPI failed ({e}), trying curl_cffi")
+
     if _CURL_AVAILABLE:
         try:
             async with CurlSession(impersonate="chrome120") as session:
