@@ -26,14 +26,14 @@ class AnalysisResult(BaseModel):
     ingredients: list[Ingredient]
     total_servings: Optional[str] = None
     serving_size: Optional[str] = None
+    key_active_ingredients: list[str]
+    summary: str
+    search_queries: list[str]
 
     @field_validator("total_servings", "serving_size", "brand", mode="before")
     @classmethod
     def coerce_to_str(cls, v):
         return str(v) if v is not None else None
-    key_active_ingredients: list[str]
-    summary: str
-    search_queries: list[str]  # Suggested search queries for finding alternatives
 
 
 SYSTEM_PROMPT = """Jesteś ekspertem od suplementów diety. Analizujesz skład suplementów i pomagasz użytkownikom znaleźć tańsze alternatywy.
@@ -98,10 +98,6 @@ def analyze_supplement(product: ProductInfo) -> AnalysisResult:
     response_text = message.content[0].text.strip()
     response_text = _clean_json(response_text)
     data = json.loads(response_text)
-    # LLM may return numeric values for string fields — coerce to string
-    for field in ("total_servings", "serving_size"):
-        if field in data and data[field] is not None and not isinstance(data[field], str):
-            data[field] = str(data[field])
     return AnalysisResult(**data)
 
 

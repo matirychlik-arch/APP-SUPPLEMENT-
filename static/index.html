@@ -1074,6 +1074,9 @@
   document.addEventListener('keydown', e => { if (e.key === 'Escape') closeQualityModal(); });
 
   function renderResults({ product, analysis, alternatives, quality }) {
+    // Reset state from previous analysis
+    document.getElementById('coffeeCard').style.display = 'none';
+
     // Product
     document.getElementById('categoryBadge').textContent = analysis.category || '';
     document.getElementById('productName').textContent   = analysis.product_name || product.name;
