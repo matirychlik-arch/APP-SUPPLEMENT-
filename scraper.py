@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 import httpx
 from bs4 import BeautifulSoup
 from pydantic import BaseModel
