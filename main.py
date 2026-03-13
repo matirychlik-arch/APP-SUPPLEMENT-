@@ -15,10 +15,12 @@ load_dotenv()
 from scraper import scrape_product
 from analyzer import analyze_supplement, generate_alternatives
 
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
 app = FastAPI(title="Supplement Price Finder", version="1.0.0")
 
 # Serve static files
-app.mount("/static", StaticFiles(directory="static"), name="static")
+app.mount("/static", StaticFiles(directory=os.path.join(BASE_DIR, "static")), name="static")
 
 
 class AnalyzeRequest(BaseModel):
@@ -34,7 +36,7 @@ class AnalyzeResponse(BaseModel):
 
 @app.get("/", response_class=HTMLResponse)
 async def root():
-    return FileResponse("static/index.html")
+    return FileResponse(os.path.join(BASE_DIR, "static", "index.html"))
 
 
 @app.post("/api/analyze", response_model=AnalyzeResponse)
