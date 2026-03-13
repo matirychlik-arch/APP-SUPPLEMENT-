@@ -112,6 +112,12 @@ def _clean_json(text: str) -> str:
 ALTERNATIVES_SYSTEM_PROMPT = """Jesteś ekspertem od suplementów diety i zakupów online w Polsce.
 Znasz ceny suplementów w polskich i międzynarodowych sklepach (iHerb, Myprotein, Allegro, Amazon, sklepy PL).
 
+Jeśli podano profil użytkownika (płeć, wiek, aktywność), PERSONALIZUJ rekomendacje:
+- Sportowiec: preferuj wyższe dawki elektrolitów/kreatyny/BCAA, zaznacz w advice
+- Kobieta: zwróć uwagę na żelazo, kwas foliowy, magnez
+- 51+: wit. D3+K2 ważne, collagen, wit. B12
+- Uwzględnij profil w polu "advice" – napisz co jest szczególnie ważne dla tej osoby
+
 Odpowiadasz WYŁĄCZNIE w formacie JSON. Bądź zwięzły – max 3 alternatywy, max 6 składników DIY.
 
 WAŻNE: Dla każdej alternatywy podaj szacunkową cenę w PLN. Dla każdego składnika DIY podaj:
@@ -155,9 +161,16 @@ Format:
 similarity_score: 100=identyczny, 80-99=brak 1-2 składników, 60-79=główne OK różni się w dodatkach, <60=częściowe podobieństwo.
 Ceny są szacunkowe – zaznacz to w advice."""
 
-DAILY_VALUES_SYSTEM_PROMPT = """Jesteś dietetykiem. Znasz europejskie normy NRV (rozporządzenie UE 1169/2011).
+DAILY_VALUES_SYSTEM_PROMPT = """Jesteś dietetykiem. Znasz europejskie normy NRV (rozporządzenie UE 1169/2011) oraz zalecenia dla różnych grup.
 
 Odpowiadasz WYŁĄCZNIE w formacie JSON. Podaj NRV tylko dla składników które mają ustalone normy UE.
+
+WAŻNE: Jeśli podano profil użytkownika (płeć, wiek, aktywność), DOSTOSUJ nrv_percent do jego indywidualnych potrzeb:
+- Sportowcy/wysoka aktywność: magnez +20-30%, wit. B1/B2/B3/B6 +20%, żelazo bez zmian (M) lub +50% (K sportowiec)
+- Kobiety: żelazo 150% wyższa norma niż mężczyźni (18mg vs 10mg), kwas foliowy ważniejszy
+- Wiek 51+: wit. D +50%, wit. B12 +20%, wapń +20%
+- Wiek 18-30: normy bazowe
+Jeśli profil nie podany, używaj standardowych norm UE.
 
 Format:
 {
@@ -189,7 +202,7 @@ def _call_claude(system: str, content: str, max_tokens: int = 3000) -> dict:
 
 def generate_alternatives(analysis: AnalysisResult, original_price: Optional[str] = None, user_profile: Optional[str] = None) -> dict:
     """Generate cheaper alternatives, DIY stack, and daily values via two separate calls."""
-    profile_info = f"\nProfil użytkownika: {user_profile}" if user_profile else ""
+    profile_info = f"\n\n>>> PROFIL UŻYTKOWNIKA: {user_profile} <<<\nDostosuj NRV i rekomendacje do tego profilu." if user_profile else ""
     ingredients_summary = ", ".join(
         f"{i.name} {i.amount or ''}{i.unit or ''}".strip()
         for i in analysis.ingredients
