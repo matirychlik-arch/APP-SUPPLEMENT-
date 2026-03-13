@@ -88,6 +88,10 @@ def analyze_supplement(product: ProductInfo) -> AnalysisResult:
     response_text = message.content[0].text.strip()
     response_text = _clean_json(response_text)
     data = json.loads(response_text)
+    # LLM may return numeric values for string fields — coerce to string
+    for field in ("total_servings", "serving_size"):
+        if field in data and data[field] is not None and not isinstance(data[field], str):
+            data[field] = str(data[field])
     return AnalysisResult(**data)
 
 
