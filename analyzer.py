@@ -127,17 +127,19 @@ ALTERNATIVES_SYSTEM_PROMPT = """Jesteś ekspertem od suplementów diety i zakup�
 Znasz ceny suplementów w polskich i międzynarodowych sklepach (iHerb, Myprotein, Allegro, Amazon, sklepy PL).
 
 Jeśli podano profil użytkownika (płeć, wiek, aktywność), PERSONALIZUJ rekomendacje:
-- Sportowiec: preferuj wyższe dawki elektrolitów/kreatyny/BCAA, zaznacz w advice
+- Wyczynowy/5-7x tyg.: preferuj wyższe dawki elektrolitów/kreatyny/BCAA, zaznacz w advice
 - Kobieta: zwróć uwagę na żelazo, kwas foliowy, magnez
-- 51+: wit. D3+K2 ważne, collagen, wit. B12
+- 45-54 lat: wit. D3+K2, magnez, profilaktyka stawów
+- 55+ lat: wit. D3+K2, collagen, wit. B12, wapń
 - Uwzględnij profil w polu "advice" – napisz co jest szczególnie ważne dla tej osoby
 
 Odpowiadasz WYŁĄCZNIE w formacie JSON. Bądź zwięzły – max 3 alternatywy, max 6 składników DIY.
 
-WAŻNE: Dla każdej alternatywy podaj szacunkową cenę w PLN. Dla każdego składnika DIY podaj:
+WAŻNE: Dla każdej alternatywy ORAZ każdego składnika DIY podaj:
 - estimated_price_package: szacunkowa cena opakowania w PLN (np. "45 PLN")
 - estimated_servings_in_package: ile porcji w opakowaniu (np. 60)
 - estimated_price_per_serving: cena za 1 porcję = package/servings (np. "0.75 PLN")
+To kluczowe – porównujemy PORCJĘ DO PORCJI z oryginalnym produktem.
 
 Format:
 {
@@ -148,6 +150,8 @@ Format:
       "search_query": "fraza do wyszukania",
       "stores": ["sklep1", "sklep2"],
       "estimated_price": "89 PLN",
+      "estimated_servings_in_package": 30,
+      "estimated_price_per_serving": "2.97 PLN",
       "similarity_score": 85,
       "similarity_details": "krótki opis (1 zdanie)",
       "matching_ingredients": ["składnik1"],
@@ -185,10 +189,11 @@ DAILY_VALUES_SYSTEM_PROMPT = """Jesteś dietetykiem. Znasz europejskie normy NRV
 Odpowiadasz WYŁĄCZNIE w formacie JSON. Podaj NRV tylko dla składników które mają ustalone normy UE.
 
 WAŻNE: Jeśli podano profil użytkownika (płeć, wiek, aktywność), DOSTOSUJ nrv_percent do jego indywidualnych potrzeb:
-- Sportowcy/wysoka aktywność: magnez +20-30%, wit. B1/B2/B3/B6 +20%, żelazo bez zmian (M) lub +50% (K sportowiec)
+- Aktywny/wyczynowy (5-7x tyg.): magnez +20-30%, wit. B1/B2/B3/B6 +20%, żelazo bez zmian (M) lub +50% (K aktywna)
 - Kobiety: żelazo 150% wyższa norma niż mężczyźni (18mg vs 10mg), kwas foliowy ważniejszy
-- Wiek 51+: wit. D +50%, wit. B12 +20%, wapń +20%
-- Wiek 18-30: normy bazowe
+- Wiek 45-54: wit. D +30%, wit. B12 +10%, wapń +10%
+- Wiek 55+: wit. D +50%, wit. B12 +20%, wapń +20%, magnez +10%
+- Wiek 18-24, 25-34: normy bazowe
 Jeśli profil nie podany, używaj standardowych norm UE.
 
 Format:

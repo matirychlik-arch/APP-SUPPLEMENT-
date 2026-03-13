@@ -621,6 +621,36 @@
     .qual-badge-standard { background: rgba(168,157,147,0.15); color: #6B6259; border: 1px solid var(--border); }
     .qual-badge-niska    { background: rgba(239,68,68,0.08);  color: #b91c1c; border: 1px solid rgba(239,68,68,0.25); }
 
+    /* ── COFFEE CTA ── */
+    .coffee-card {
+      background: linear-gradient(135deg, rgba(114,216,86,0.08) 0%, rgba(4,147,90,0.06) 100%);
+      border: 1px solid rgba(114,216,86,0.35);
+      border-radius: 20px; padding: 24px 28px;
+      margin-bottom: 24px;
+      display: flex; gap: 20px; align-items: flex-start;
+    }
+    .coffee-left { font-size: 40px; line-height: 1; flex-shrink: 0; }
+    .coffee-body { flex: 1; }
+    .coffee-title { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 18px; color: var(--text); margin-bottom: 6px; }
+    .coffee-text  { font-size: 14px; color: var(--text-dim); line-height: 1.5; margin-bottom: 14px; }
+    .coffee-actions { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+    .btn-coffee {
+      display: inline-flex; align-items: center; gap: 6px;
+      background: var(--accent-dk); color: #fff;
+      font-size: 14px; font-weight: 600;
+      padding: 10px 20px; border-radius: 100px;
+      text-decoration: none; border: none; cursor: pointer;
+      transition: opacity 0.2s; font-family: 'Inter', sans-serif;
+    }
+    .btn-coffee:hover { opacity: 0.85; }
+    .btn-coffee-skip {
+      background: none; border: none; cursor: pointer;
+      font-size: 13px; color: var(--text-muted);
+      font-family: 'Inter', sans-serif; padding: 4px 8px;
+      transition: color 0.2s;
+    }
+    .btn-coffee-skip:hover { color: var(--text-dim); }
+
     /* ── QUALITY MODAL ── */
     #qualityModal {
       position: fixed; inset: 0; z-index: 500;
@@ -721,15 +751,19 @@
       </select>
       <select id="profileAge" class="profile-select">
         <option value="">Wiek</option>
-        <option value="18-30">18–30 lat</option>
-        <option value="31-50">31–50 lat</option>
-        <option value="51+">51+ lat</option>
+        <option value="18-24 lata">18–24 lat</option>
+        <option value="25-34 lata">25–34 lat</option>
+        <option value="35-44 lata">35–44 lat</option>
+        <option value="45-54 lata">45–54 lat</option>
+        <option value="55+ lat">55+ lat</option>
       </select>
       <select id="profileActivity" class="profile-select">
         <option value="">Aktywność</option>
-        <option value="mała aktywność">Mała</option>
-        <option value="umiarkowana aktywność">Umiarkowana</option>
-        <option value="wysoka aktywność, sport">Sportowiec</option>
+        <option value="tryb siedzący (0–1× w tygodniu)">Siedzący (0–1×/tyg.)</option>
+        <option value="lekko aktywny (1–2× w tygodniu, spacery, joga)">Lekko aktywny (1–2×/tyg.)</option>
+        <option value="umiarkowana aktywność (3–4× w tygodniu)">Umiarkowany (3–4×/tyg.)</option>
+        <option value="wysoka aktywność, sport (5–6× w tygodniu)">Aktywny sportowo (5–6×/tyg.)</option>
+        <option value="sportowiec wyczynowy, codzienne treningi (7× w tygodniu)">Wyczynowy (codziennie)</option>
       </select>
     </div>
 
@@ -805,6 +839,19 @@
       <div class="advice-box">
         <p class="advice-box-label">Porada eksperta</p>
         <p class="advice-text" id="adviceText"></p>
+      </div>
+    </div>
+
+    <!-- Coffee CTA -->
+    <div class="coffee-card" id="coffeeCard" style="display:none">
+      <div class="coffee-left">☕</div>
+      <div class="coffee-body">
+        <div class="coffee-title">Pomogłem Ci zaoszczędzić <span id="coffeeSaving"></span> miesięcznie!</div>
+        <div class="coffee-text">Jeśli SupSaver okazał się pomocny, możesz wesprzeć jego rozwój stawiając kawę.</div>
+        <div class="coffee-actions">
+          <a href="https://ko-fi.com/supsaver" target="_blank" class="btn-coffee">☕ Postaw kawę</a>
+          <button class="btn-coffee-skip" onclick="document.getElementById('coffeeCard').style.display='none'">Pomiń</button>
+        </div>
       </div>
     </div>
 
@@ -1103,6 +1150,9 @@
 
     // Alternatives
     const origPrice = parseFloat((product.price||'').replace(',','.').replace(/[^0-9.]/g,'')) || null;
+    const totalServings = parseInt((analysis.total_servings||'').replace(/[^0-9]/g,'')) || null;
+    const origPricePerServing = (origPrice && totalServings) ? origPrice / totalServings : null;
+
     const ac = document.getElementById('alternativesList');
     ac.innerHTML = '';
     const alts = alternatives.cheaper_alternatives || [];
@@ -1112,12 +1162,20 @@
       alts.forEach(alt => {
         const score   = parseInt(alt.similarity_score) || 0;
         const sc      = simColor(score);
-        const altPx   = parseFloat((alt.estimated_price||'').replace(',','.').replace(/[^0-9.]/g,'')) || null;
-        const savePct = (origPrice && altPx && altPx < origPrice) ? Math.round((1 - altPx/origPrice)*100) : null;
+        const altPps  = parseFloat((alt.estimated_price_per_serving||'').replace(',','.').replace(/[^0-9.]/g,'')) || null;
+        const savePct = (origPricePerServing && altPps)
+          ? Math.round((1 - altPps / origPricePerServing) * 100)
+          : null;
         const qScore  = parseInt(alt.quality_score) || 0;
         const qc      = scoreColor(qScore);
         const qR = 24, qCX = 32, qCY = 32, qCirc = 2 * Math.PI * qR;
         const qOffset = qScore > 0 ? qCirc * (1 - qScore / 100) : qCirc;
+
+        const saveBadge = savePct !== null
+          ? (savePct > 0
+              ? `<span class="alt-savings">-${savePct}% / porcję</span>`
+              : `<span class="alt-savings" style="background:#A89D93">+${Math.abs(savePct)}% / porcję</span>`)
+          : '';
 
         const card = document.createElement('div');
         card.className = 'alt-card';
@@ -1141,7 +1199,8 @@
             </div>` : ''}
             <div class="alt-price-block">
               ${alt.estimated_price ? `<div class="alt-price">~${esc(alt.estimated_price)}</div>` : ''}
-              ${savePct ? `<span class="alt-savings">-${savePct}%</span>` : ''}
+              ${altPps ? `<div style="font-size:12px;color:var(--text-muted);font-family:'JetBrains Mono',monospace;margin-top:2px">~${altPps.toFixed(2)} PLN / porcja</div>` : ''}
+              ${saveBadge}
               <br>
               <a href="${searchUrl(alt.search_query)}" target="_blank" class="btn-search">🔍 Szukaj</a>
             </div>
@@ -1201,28 +1260,31 @@
       });
 
       if (hasPrices) {
-        const savePct = (origPrice && totalServing > 0) ? Math.round((1 - totalServing/origPrice)*100) : null;
+        const savePct = (origPricePerServing && totalServing > 0)
+          ? Math.round((1 - totalServing / origPricePerServing) * 100)
+          : null;
+        const covScore = Math.min(Math.max(diyCoverage, 0), 100);
         const sum = document.createElement('div');
         sum.className = 'diy-summary';
         sum.innerHTML = `
           <div>
-            <div class="diy-sum-label">Koszt / porcja (suma)</div>
+            <div class="diy-sum-label">DIY koszt / porcja</div>
             <div class="diy-sum-val">~${totalServing.toFixed(2)} PLN</div>
           </div>
           ${totalPkg > 0 ? `<div>
             <div class="diy-sum-label">Łączny koszt opakowań</div>
             <div class="diy-sum-val" style="font-size:22px">~${totalPkg.toFixed(0)} PLN</div>
           </div>` : ''}
-          ${origPrice ? `<div>
+          ${origPricePerServing ? `<div>
             <div class="diy-sum-label">Oryginał / porcja</div>
-            <div class="diy-sum-val" style="opacity:0.5;font-size:20px">${origPrice.toFixed(2)} PLN</div>
+            <div class="diy-sum-val" style="opacity:0.5;font-size:20px">~${origPricePerServing.toFixed(2)} PLN</div>
           </div>` : ''}
           ${savePct !== null ? `<div class="diy-sum-savings">
-            <div class="diy-sum-label">oszczędzasz</div>
-            <div class="diy-sum-savings-pct">${savePct > 0 ? '-' : '+'}${Math.abs(savePct)}%</div>
+            <div class="diy-sum-label">${savePct >= 0 ? 'oszczędzasz' : 'drożej o'}</div>
+            <div class="diy-sum-savings-pct" ${savePct < 0 ? 'style="color:#ef4444"' : ''}>${savePct >= 0 ? savePct : Math.abs(savePct)}%</div>
           </div>` : ''}
-          ${diyCoverage > 0 ? `<div class="diy-coverage">
-            <div class="diy-coverage-val" style="color:${scoreColor(diyCoverage).stroke}">${diyCoverage}%</div>
+          ${covScore > 0 ? `<div class="diy-coverage">
+            <div class="diy-coverage-val" style="color:${scoreColor(covScore).stroke}">${covScore}%</div>
             <div class="diy-coverage-label">pokrycie<br>składników</div>
           </div>` : ''}
           <p class="diy-sum-note" style="width:100%;margin-top:0">* Ceny szacunkowe. Koszt opakowań jednorazowy – taniej z każdym miesiącem.</p>`;
@@ -1244,6 +1306,30 @@
     // Advice
     document.getElementById('savingsPotential').textContent = alternatives.savings_potential || '';
     document.getElementById('adviceText').textContent       = alternatives.advice || '';
+
+    // Coffee CTA — show when user saves money per serving
+    const coffeeCard = document.getElementById('coffeeCard');
+    const coffeeSaving = document.getElementById('coffeeSaving');
+    if (origPricePerServing && origPricePerServing > 0) {
+      // Best savings: lower of DIY per serving vs cheapest alternative per serving
+      let diyTotalServing = 0;
+      (alternatives.diy_stack || []).forEach(item => {
+        const ps = parseFloat((item.estimated_price_per_serving||'').replace(',','.').replace(/[^0-9.]/g,'')) || 0;
+        diyTotalServing += ps;
+      });
+      const altPpsArr = (alternatives.cheaper_alternatives || [])
+        .map(a => parseFloat((a.estimated_price_per_serving||'').replace(',','.').replace(/[^0-9.]/g,'')) || null)
+        .filter(Boolean);
+      const bestAltPps = altPpsArr.length ? Math.min(...altPpsArr) : null;
+      const candidates = [diyTotalServing > 0 ? diyTotalServing : null, bestAltPps].filter(Boolean);
+      const bestPps = candidates.length ? Math.min(...candidates) : null;
+      const savingPerServing = bestPps ? origPricePerServing - bestPps : null;
+      if (savingPerServing && savingPerServing > 0 && totalServings) {
+        const monthlySaving = Math.round(savingPerServing * totalServings);
+        coffeeSaving.textContent = `~${monthlySaving} PLN`;
+        coffeeCard.style.display = 'flex';
+      }
+    }
 
     document.getElementById('resultsWrap').style.display = 'block';
   }
