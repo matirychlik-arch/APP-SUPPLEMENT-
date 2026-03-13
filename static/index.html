@@ -598,8 +598,10 @@
     document.getElementById('btnIcon').textContent = on ? '…' : '→';
     document.getElementById('btnText').textContent  = on ? 'Analizuję...' : 'Analizuj';
     document.getElementById('loadingWrap').style.display = on ? 'block' : 'none';
-    document.getElementById('resultsWrap').style.display = 'none';
-    if (on) document.getElementById('errorBox').style.display = 'none';
+    if (on) {
+      document.getElementById('resultsWrap').style.display = 'none';
+      document.getElementById('errorBox').style.display = 'none';
+    }
   }
 
   function setStatus(msg) {
