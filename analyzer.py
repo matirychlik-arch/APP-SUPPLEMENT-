@@ -3,7 +3,7 @@ import json
 import re
 from typing import Optional
 from scraper import ProductInfo
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 
 class Ingredient(BaseModel):
@@ -13,6 +13,11 @@ class Ingredient(BaseModel):
     daily_value: Optional[str] = None
     notes: Optional[str] = None
 
+    @field_validator("amount", "unit", "daily_value", "notes", mode="before")
+    @classmethod
+    def coerce_to_str(cls, v):
+        return str(v) if v is not None else None
+
 
 class AnalysisResult(BaseModel):
     product_name: str
@@ -21,6 +26,11 @@ class AnalysisResult(BaseModel):
     ingredients: list[Ingredient]
     total_servings: Optional[str] = None
     serving_size: Optional[str] = None
+
+    @field_validator("total_servings", "serving_size", "brand", mode="before")
+    @classmethod
+    def coerce_to_str(cls, v):
+        return str(v) if v is not None else None
     key_active_ingredients: list[str]
     summary: str
     search_queries: list[str]  # Suggested search queries for finding alternatives
