@@ -462,9 +462,55 @@
 
     .main { max-width: 900px; margin: 0 auto; padding: 0 40px 80px; }
     @media(max-width:600px){ .main{padding:0 20px 60px} nav{padding:16px 20px} .hero{padding:48px 20px 40px} }
+
+    /* ── AUTH GATE ── */
+    #authGate {
+      position: fixed; inset: 0; z-index: 9999;
+      background: var(--bg);
+      display: flex; align-items: center; justify-content: center;
+    }
+    .auth-box {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 20px; padding: 40px;
+      width: 100%; max-width: 360px;
+      box-shadow: 0 8px 40px rgba(0,0,0,0.08);
+      text-align: center;
+    }
+    .auth-icon { font-size: 40px; margin-bottom: 16px; }
+    .auth-title { font-family:'Syne',sans-serif; font-weight:800; font-size:22px; color:var(--text); margin-bottom:8px; }
+    .auth-sub { font-size:13px; color:var(--text-muted); margin-bottom:24px; }
+    .auth-input {
+      width:100%; background:var(--bg); border:1px solid var(--border);
+      border-radius:10px; padding:12px 16px; font-size:15px;
+      color:var(--text); outline:none; font-family:'Inter',sans-serif;
+      transition:border-color 0.2s, box-shadow 0.2s;
+    }
+    .auth-input:focus { border-color:var(--accent); box-shadow:0 0 0 3px rgba(114,216,86,0.18); }
+    .auth-btn {
+      width:100%; margin-top:12px;
+      background:var(--accent); color:#fff; border:none; cursor:pointer;
+      font-family:'Syne',sans-serif; font-weight:700; font-size:15px;
+      padding:13px; border-radius:100px;
+      transition:background 0.2s;
+    }
+    .auth-btn:hover { background:var(--accent-dk); }
+    .auth-error { color:#A0522D; font-size:13px; margin-top:10px; display:none; }
   </style>
 </head>
 <body>
+
+<!-- Auth gate -->
+<div id="authGate">
+  <div class="auth-box">
+    <div class="auth-icon">🔒</div>
+    <div class="auth-title">SupSaver</div>
+    <div class="auth-sub">Wpisz hasło dostępu</div>
+    <input id="authInput" type="password" class="auth-input" placeholder="Hasło..." />
+    <button class="auth-btn" onclick="submitAuth()">Wejdź →</button>
+    <div class="auth-error" id="authError">Nieprawidłowe hasło.</div>
+  </div>
+</div>
 
 <nav>
   <div class="nav-logo">
@@ -588,6 +634,36 @@
 
 <script>
   const API_BASE = '';
+
+  // ── AUTH ──
+  function getToken() { return sessionStorage.getItem('access_token') || ''; }
+
+  async function submitAuth() {
+    const token = document.getElementById('authInput').value.trim();
+    if (!token) return;
+    // Weryfikuj token przez backend
+    const resp = await fetch(`${API_BASE}/api/health`, {
+      headers: { 'X-Access-Token': token }
+    });
+    if (resp.ok) {
+      sessionStorage.setItem('access_token', token);
+      document.getElementById('authGate').style.display = 'none';
+    } else {
+      document.getElementById('authError').style.display = 'block';
+    }
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    const token = getToken();
+    if (token) {
+      // Sprawdź czy token nadal ważny
+      fetch(`${API_BASE}/api/health`, { headers: { 'X-Access-Token': token } })
+        .then(r => { if (r.ok) document.getElementById('authGate').style.display = 'none'; });
+    }
+    document.getElementById('authInput').addEventListener('keydown', e => {
+      if (e.key === 'Enter') submitAuth();
+    });
+  });
 
   function esc(str) {
     if (!str) return '';
@@ -847,7 +923,7 @@
     try {
       const resp = await fetch(`${API_BASE}/api/analyze`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-Access-Token': getToken() },
         body: JSON.stringify({ url, user_profile }),
       });
       const data = await resp.json();

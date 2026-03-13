@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, Header
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -7,6 +7,7 @@ from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 from pydantic import BaseModel
 from typing import Optional
+import secrets
 from dotenv import load_dotenv
 import os
 import logging
@@ -57,9 +58,20 @@ async def root():
     return FileResponse(os.path.join(BASE_DIR, "static", "index.html"))
 
 
+ACCESS_TOKEN = os.getenv("ACCESS_TOKEN", "")
+
+def verify_token(x_access_token: str = Header(default="")):
+    if ACCESS_TOKEN and not secrets.compare_digest(x_access_token, ACCESS_TOKEN):
+        raise HTTPException(status_code=401, detail="Nieprawidłowy token dostępu.")
+
+
 @app.post("/api/analyze", response_model=AnalyzeResponse)
 @limiter.limit("10/minute")
-async def analyze(request: Request, body: AnalyzeRequest):
+async def analyze(request: Request, body: AnalyzeRequest,
+                  x_access_token: str = Header(default="")):
+    if ACCESS_TOKEN and not secrets.compare_digest(x_access_token, ACCESS_TOKEN):
+        raise HTTPException(status_code=401, detail="Nieprawidłowy token dostępu.")
+
     url = body.url.strip()
     if not url.startswith(("http://", "https://")):
         raise HTTPException(status_code=400, detail="Nieprawidłowy URL. Podaj pełny adres zaczynający się od http:// lub https://")
@@ -104,7 +116,9 @@ async def analyze(request: Request, body: AnalyzeRequest):
 
 
 @app.get("/api/health")
-async def health():
+async def health(x_access_token: str = Header(default="")):
+    if ACCESS_TOKEN and not secrets.compare_digest(x_access_token, ACCESS_TOKEN):
+        raise HTTPException(status_code=401, detail="Nieprawidłowy token dostępu.")
     return {"status": "ok"}
 
 
