@@ -1,9 +1,18 @@
-import httpx
 import json
+import logging
+import httpx
 from bs4 import BeautifulSoup
 from pydantic import BaseModel
 from typing import Optional
 import re
+
+try:
+    from curl_cffi.requests import AsyncSession as CurlSession
+    _CURL_AVAILABLE = True
+except ImportError:
+    _CURL_AVAILABLE = False
+
+log = logging.getLogger(__name__)
 
 
 class ProductInfo(BaseModel):
@@ -214,12 +223,28 @@ def _extract_brand(soup: BeautifulSoup) -> Optional[str]:
     return None
 
 
-async def scrape_product(url: str) -> ProductInfo:
-    """Fetch product page and extract supplement information."""
+async def _fetch_html(url: str) -> str:
+    """Fetch page HTML, using curl_cffi (Chrome impersonation) first, httpx as fallback."""
+    if _CURL_AVAILABLE:
+        try:
+            async with CurlSession(impersonate="chrome120") as session:
+                resp = await session.get(url, timeout=25, allow_redirects=True)
+                if resp.status_code < 400:
+                    log.info(f"curl_cffi OK ({resp.status_code})")
+                    return resp.text
+                log.warning(f"curl_cffi got {resp.status_code}, falling back to httpx")
+        except Exception as e:
+            log.warning(f"curl_cffi failed ({e}), falling back to httpx")
+
     async with httpx.AsyncClient(headers=HEADERS, follow_redirects=True, timeout=20) as client:
         resp = await client.get(url)
         resp.raise_for_status()
-        html = resp.text
+        return resp.text
+
+
+async def scrape_product(url: str) -> ProductInfo:
+    """Fetch product page and extract supplement information."""
+    html = await _fetch_html(url)
 
     soup = BeautifulSoup(html, "lxml")
 
