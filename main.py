@@ -1,7 +1,11 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse, FileResponse
-from pydantic import BaseModel, HttpUrl
+from fastapi.middleware.cors import CORSMiddleware
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
+from pydantic import BaseModel
 from typing import Optional
 from dotenv import load_dotenv
 import os
@@ -17,7 +21,21 @@ from analyzer import analyze_supplement, generate_alternatives
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-app = FastAPI(title="Supplement Price Finder", version="1.0.0")
+# Rate limiter – max 10 zapytań/minutę per IP
+limiter = Limiter(key_func=get_remote_address)
+
+app = FastAPI(title="Supplement Price Finder", version="1.0.0", docs_url=None, redoc_url=None)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+# CORS – tylko własna domena (+ localhost do developmentu)
+ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "http://localhost:8000").split(",")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=ALLOWED_ORIGINS,
+    allow_methods=["GET", "POST"],
+    allow_headers=["Content-Type"],
+)
 
 # Serve static files
 app.mount("/static", StaticFiles(directory=os.path.join(BASE_DIR, "static")), name="static")
@@ -40,10 +58,13 @@ async def root():
 
 
 @app.post("/api/analyze", response_model=AnalyzeResponse)
-async def analyze(request: AnalyzeRequest):
-    url = request.url.strip()
+@limiter.limit("10/minute")
+async def analyze(request: Request, body: AnalyzeRequest):
+    url = body.url.strip()
     if not url.startswith(("http://", "https://")):
         raise HTTPException(status_code=400, detail="Nieprawidłowy URL. Podaj pełny adres zaczynający się od http:// lub https://")
+    if len(url) > 2048:
+        raise HTTPException(status_code=400, detail="URL jest zbyt długi.")
 
     # 1. Scrape product page
     log.info(f"[1/3] Pobieram stronę produktu: {url}")
@@ -52,16 +73,10 @@ async def analyze(request: AnalyzeRequest):
         log.info(f"[1/3] OK – produkt: {product.name}")
     except Exception as e:
         log.error(f"[1/3] BŁĄD scraping: {e}")
-        raise HTTPException(
-            status_code=422,
-            detail=f"Nie udało się pobrać strony produktu: {str(e)}"
-        )
+        raise HTTPException(status_code=422, detail=f"Nie udało się pobrać strony produktu: {str(e)}")
 
     if not product.ingredients_raw and not product.description:
-        raise HTTPException(
-            status_code=422,
-            detail="Nie znaleziono informacji o składnikach na podanej stronie. Upewnij się, że link prowadzi do strony konkretnego produktu suplementacyjnego."
-        )
+        raise HTTPException(status_code=422, detail="Nie znaleziono informacji o składnikach na podanej stronie.")
 
     # 2. Analyze with Claude
     log.info("[2/3] Analizuję skład z Claude AI...")
@@ -70,22 +85,16 @@ async def analyze(request: AnalyzeRequest):
         log.info(f"[2/3] OK – kategoria: {analysis.category}, składniki: {len(analysis.ingredients)}")
     except Exception as e:
         log.error(f"[2/3] BŁĄD analizy: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Błąd analizy składników: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"Błąd analizy składników: {str(e)}")
 
     # 3. Generate alternatives
     log.info("[3/3] Generuję tańsze zamienniki z Claude AI...")
     try:
-        alternatives = generate_alternatives(analysis, product.price, request.user_profile)
+        alternatives = generate_alternatives(analysis, product.price, body.user_profile)
         log.info("[3/3] OK – gotowe!")
     except Exception as e:
         log.error(f"[3/3] BŁĄD alternatyw: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Błąd generowania alternatyw: {str(e)}"
-        )
+        raise HTTPException(status_code=500, detail=f"Błąd generowania alternatyw: {str(e)}")
 
     return AnalyzeResponse(
         product=product.model_dump(),
@@ -96,8 +105,7 @@ async def analyze(request: AnalyzeRequest):
 
 @app.get("/api/health")
 async def health():
-    api_key_set = bool(os.getenv("ANTHROPIC_API_KEY"))
-    return {"status": "ok", "api_key_configured": api_key_set}
+    return {"status": "ok"}
 
 
 if __name__ == "__main__":
