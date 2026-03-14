@@ -89,7 +89,7 @@ def analyze_supplement(product: ProductInfo) -> AnalysisResult:
     user_message = "\n".join(content_parts)
 
     message = client.messages.create(
-        model="claude-sonnet-4-6",
+        model="claude-haiku-4-5-20251001",
         max_tokens=2000,
         temperature=0,
         system=SYSTEM_PROMPT,
@@ -282,7 +282,7 @@ Oceniaj tylko składniki aktywne (nie pomocnicze jak stearyn magnezu, celuloza, 
 def _call_claude(system: str, content: str, max_tokens: int = 3000) -> dict:
     client = anthropic.Anthropic()
     message = client.messages.create(
-        model="claude-sonnet-4-6",
+        model="claude-haiku-4-5-20251001",
         max_tokens=max_tokens,
         temperature=0,
         system=system,
