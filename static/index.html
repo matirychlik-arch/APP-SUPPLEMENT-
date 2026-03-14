@@ -1414,13 +1414,7 @@
         const ps = parseFloat((item.estimated_price_per_serving||'').replace(',','.').replace(/[^0-9.]/g,'')) || 0;
         diyTotalServing += ps;
       });
-      const altPpsArr = (alternatives.cheaper_alternatives || [])
-        .map(a => parseFloat((a.estimated_price_per_serving||'').replace(',','.').replace(/[^0-9.]/g,'')) || null)
-        .filter(Boolean);
-      const bestAltPps = altPpsArr.length ? Math.min(...altPpsArr) : null;
-      const candidates = [diyTotalServing > 0 ? diyTotalServing : null, bestAltPps].filter(Boolean);
-      const bestPps = candidates.length ? Math.min(...candidates) : null;
-      const savingPerServing = bestPps ? origPricePerServing - bestPps : null;
+      const savingPerServing = diyTotalServing > 0 ? origPricePerServing - diyTotalServing : null;
       if (savingPerServing && savingPerServing > 0) {
         bestSavingsText = `ok. ${Math.round(savingPerServing * 30)} PLN`;
       }
