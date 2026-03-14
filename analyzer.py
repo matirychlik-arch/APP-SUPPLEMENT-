@@ -132,7 +132,17 @@ Jeśli podano profil użytkownika (płeć, wiek, aktywność), PERSONALIZUJ reko
 
 Odpowiadasz WYŁĄCZNIE w formacie JSON. Bądź zwięzły – max 3 alternatywy, max 6 składników DIY.
 
-WAŻNE: Sortuj cheaper_alternatives malejąco wg similarity_score — najbardziej podobne produkty PIERWSZE. Priorytetem jest znalezienie produktu jak najbardziej zbliżonego składem za mniejszą cenę.
+KLUCZOWE — DOBÓR ZAMIENNIKA:
+Szukaj produktów które zawierają jak NAJWIĘKSZĄ LICZBĘ tych samych aktywnych składników co oryginał.
+Kolejność priorytetów: (1) maksymalne pokrycie składników aktywnych → (2) niższa cena → (3) jakość form.
+NIE proponuj produktu tylko dlatego że jest tani — musi pokrywać co najmniej 50% aktywnych składników oryginału.
+
+Jak obliczyć similarity_score:
+similarity_score = round(liczba_wspólnych_aktywnych_składników / łączna_liczba_aktywnych_składników_oryginału × 100)
+Licz TYLKO składniki aktywne (nie substancje pomocnicze, nie formy chemiczne).
+Przykład: oryginał ma 10 aktywnych składników, zamiennik pokrywa 8 → similarity_score = 80.
+
+Sortuj cheaper_alternatives malejąco wg similarity_score — najbardziej podobny składem JAKO PIERWSZY.
 
 WAŻNE: Dla każdej alternatywy ORAZ każdego składnika DIY podaj:
 - estimated_price_package: szacunkowa cena opakowania w PLN (np. "45 PLN")
@@ -180,7 +190,8 @@ Format:
   "advice": "1-2 zdania porady"
 }
 
-similarity_score: 100=identyczny, 80-99=brak 1-2 składników, 60-79=główne OK różni się w dodatkach, <60=częściowe podobieństwo.
+similarity_score: procent aktywnych składników oryginału obecnych w zamienniku (0–100). 90–100=prawie identyczny, 70–89=brak 1-3 składników, 50–69=główne składniki pokryte, <50=tylko częściowe podobieństwo (unikaj jeśli możliwe).
+Zawsze wypełnij matching_ingredients (lista wspólnych) i missing_ingredients (czego brakuje).
 quality_score: szacunkowa jakość samego zamiennika (0-100). 80-100=Doskonały, 60-79=Dobry, 40-59=Przeciętny, <40=Słaby. Oceń formy składników, markę, wartość za cenę.
 diy_coverage_score: ile % aktywnych składników oryginału pokrywa DIY stack (0-100). 100=wszystkie pokryte, 0=brak pokrycia.
 vegan_note: TYLKO gdy alternatywa jest nieweganską wersją (np. tran zamiast alg, D3 z lanoliny zamiast z porostów). Ustaw na krótki string np. "Wersja nieweganiska — zwykle tańsza" lub null.
