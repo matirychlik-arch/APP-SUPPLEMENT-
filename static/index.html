@@ -411,12 +411,17 @@
     .diy-card {
       background: var(--bg-card);
       border: 1px solid var(--border);
+      border-left: 3px solid transparent;
       border-radius: 16px; padding: 18px;
       margin-bottom: 12px;
       display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap;
-      transition: box-shadow 0.3s var(--ease), transform 0.3s var(--ease);
+      transition: box-shadow 0.3s var(--ease), transform 0.3s var(--ease), opacity 0.2s, border-color 0.2s;
+      position: relative;
     }
     .diy-card:hover { transform: translateY(-2px); box-shadow: 0 6px 24px rgba(0,0,0,0.06); }
+    .diy-card.diy-sel { border-left-color: var(--accent); cursor: pointer; }
+    .diy-card.diy-sel::after { content: '✓'; position: absolute; top: 10px; right: 12px; font-size: 11px; color: var(--accent); font-family: 'JetBrains Mono', monospace; }
+    .diy-card.diy-unsel { opacity: 0.35; cursor: pointer; }
     .diy-body { flex: 1; }
     .diy-name { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 16px; color: var(--text); }
     .diy-dose {
@@ -448,7 +453,8 @@
     .diy-savings-badge-pct { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 56px; color: #72D856; line-height: 1; }
     .diy-savings-badge-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1.5px; color: rgba(255,255,255,0.5); font-family: 'JetBrains Mono', monospace; margin-top: 4px; }
     .diy-sum-note { font-size: 11px; opacity: 0.4; margin-top: 8px; }
-    .diy-inactive { opacity: 0.22; pointer-events: none; }
+    .diy-alt-chip { display: inline-flex; align-items: center; gap: 6px; background: rgba(114,216,86,0.12); border: 1px solid rgba(114,216,86,0.3); color: #72D856; border-radius: 20px; padding: 4px 12px; font-size: 12px; cursor: pointer; font-family: 'JetBrains Mono', monospace; transition: all 0.2s; }
+    .diy-alt-chip.chip-off { background: var(--bg-el); border-color: var(--border); color: var(--text-muted); }
     .diy-filter-banner { font-size: 13px; color: var(--text-muted); background: rgba(114,216,86,0.07); border: 1px solid rgba(114,216,86,0.18); border-radius: 10px; padding: 10px 14px; margin-bottom: 12px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
     .diy-filter-reset { background: none; border: 1px solid var(--bg-el); color: var(--text-muted); border-radius: 6px; padding: 3px 10px; font-size: 12px; cursor: pointer; margin-left: auto; }
     .diy-filter-reset:hover { border-color: var(--text-muted); color: var(--text); }
@@ -1305,7 +1311,7 @@
                .filter(n => !matchingNormed.some(m => n.includes(m) || m.includes(n)))
           );
           diyFilterBtn.addEventListener('click', () => {
-            window.__redrawDiy(filteredSet, alt.name);
+            window.__redrawDiy(filteredSet, alt.name, { pps: altPps });
             document.getElementById('diyStack').scrollIntoView({ behavior: 'smooth', block: 'start' });
           });
         }
@@ -1316,7 +1322,79 @@
     const dc = document.getElementById('diyStack');
     const diyCoverage = parseInt(alternatives.diy_coverage_score) || 0;
 
-    function redrawDiy(activeSet, filterLabel) {
+    // Shared selection state
+    let _diySel = { items: new Set(), altPps: 0, altSelected: false };
+
+    function updateDiySummary() {
+      const oldSum = dc.querySelector('.diy-summary');
+      if (oldSum) oldSum.remove();
+
+      let totalServing = 0, totalPkg = 0, hasDiy = false;
+      diy.forEach(item => {
+        if (!_diySel.items.has(normIng(item.ingredient))) return;
+        const ps  = parseFloat((item.estimated_price_per_serving||'').replace(',','.').replace(/[^0-9.]/g,'')) || 0;
+        const pkg = parseFloat((item.estimated_price_package||'').replace(',','.').replace(/[^0-9.]/g,'')) || 0;
+        if (ps > 0) { totalServing += ps; hasDiy = true; }
+        if (pkg > 0) totalPkg += pkg;
+      });
+
+      const altPps         = _diySel.altSelected ? (_diySel.altPps || 0) : 0;
+      const combinedServing = altPps + totalServing;
+      const hasPrices      = hasDiy || altPps > 0;
+      if (!hasPrices) return;
+
+      const combined30 = combinedServing * 30;
+      const orig30     = origPricePerServing ? origPricePerServing * 30 : (origPrice || null);
+      const savePln    = orig30 !== null ? Math.round(orig30 - combined30) : null;
+      const savePct    = (orig30 && combinedServing > 0)
+        ? Math.round((1 - combined30 / orig30) * 100) : null;
+      const covScore   = Math.min(Math.max(diyCoverage, 0), 100);
+      const isAltMode  = _diySel.altPps > 0;
+
+      const sum = document.createElement('div');
+      sum.className = 'diy-summary';
+      sum.innerHTML = `
+        ${altPps > 0 ? `<div>
+          <div class="diy-sum-label">Zamiennik / porcja</div>
+          <div class="diy-sum-val" style="font-size:22px">ok. ${altPps.toFixed(2)} PLN</div>
+        </div>` : ''}
+        ${totalServing > 0 ? `<div>
+          <div class="diy-sum-label">${isAltMode ? 'DIY braki / porcja' : 'DIY / porcja'}</div>
+          <div class="diy-sum-val" ${isAltMode ? 'style="font-size:22px"' : ''}>ok. ${totalServing.toFixed(2)} PLN</div>
+        </div>` : (altPps > 0 ? `<div style="font-size:12px;color:rgba(0,0,0,0.5);align-self:center">Zamiennik pokrywa wszystkie składniki</div>` : '')}
+        ${combinedServing > 0 ? `<div>
+          <div class="diy-sum-label">${isAltMode ? 'Razem / porcja' : 'DIY / porcja'}</div>
+          <div class="diy-sum-val">ok. ${combinedServing.toFixed(2)} PLN</div>
+        </div>
+        <div>
+          <div class="diy-sum-label">${isAltMode ? 'Razem / 30 dni' : 'DIY / 30 dni'}</div>
+          <div class="diy-sum-val">ok. ${combined30.toFixed(0)} PLN</div>
+        </div>` : ''}
+        ${orig30 !== null ? `<div>
+          <div class="diy-sum-label">Oryginał / 30 dni</div>
+          <div class="diy-sum-val" style="opacity:0.5;font-size:20px">ok. ${orig30.toFixed(0)} PLN</div>
+        </div>` : ''}
+        ${!isAltMode && totalPkg > 0 ? `<div>
+          <div class="diy-sum-label">Jednorazowy koszt</div>
+          <div class="diy-sum-val" style="font-size:20px">ok. ${totalPkg.toFixed(0)} PLN</div>
+        </div>` : ''}
+        ${savePln !== null ? `<div class="diy-sum-savings">
+          <div class="diy-sum-label">${savePln >= 0 ? 'oszczędzasz / miesiąc' : 'drożej o / miesiąc'}</div>
+          <div class="diy-sum-savings-pct" ${savePln < 0 ? 'style="color:#ef4444"' : ''}>${Math.abs(savePln)} PLN</div>
+        </div>` : ''}
+        ${savePct !== null ? `<div class="diy-savings-badge">
+          <div class="diy-savings-badge-pct" ${savePct < 0 ? 'style="color:#ef4444"' : ''}>${savePct > 0 ? '−' : '+'}${Math.abs(savePct)}%</div>
+          <div class="diy-savings-badge-label">${savePct >= 0 ? 'taniej' : 'drożej'}</div>
+        </div>` : ''}
+        ${covScore > 0 ? `<div class="diy-coverage">
+          <div class="diy-coverage-val" style="color:${scoreColor(covScore).stroke}">${covScore}%</div>
+          <div class="diy-coverage-label">pokrycie<br>składników</div>
+        </div>` : ''}
+        <p class="diy-sum-note" style="width:100%;margin-top:0">* Ceny szacunkowe. Jednorazowy koszt opakowań — taniej z każdym kolejnym miesiącem.</p>`;
+      dc.appendChild(sum);
+    }
+
+    function redrawDiy(activeSet, filterLabel, altContext = null) {
       dc.innerHTML = '';
 
       if (!diy.length) {
@@ -1324,28 +1402,32 @@
         return;
       }
 
-      // Filter banner with reset button
+      // Initialise shared selection state
+      _diySel.altPps      = altContext ? (altContext.pps || 0) : 0;
+      _diySel.altSelected = !!altContext;
+      _diySel.items       = new Set(
+        diy.map(d => normIng(d.ingredient))
+           .filter(n => !activeSet || activeSet.has(n))
+      );
+
+      // Banner (only in filter mode)
       if (filterLabel) {
         const banner = document.createElement('div');
         banner.className = 'diy-filter-banner';
-        banner.innerHTML = `Uzupełnienie DIY dla: <strong>${esc(filterLabel)}</strong> — wyszarzone składniki pokrywa zamiennik.
-          <button class="diy-filter-reset">✕ Pokaż pełny DIY</button>`;
+        banner.innerHTML = `
+          <span style="font-size:12px;color:var(--text-muted);text-transform:uppercase;letter-spacing:1px;font-family:'JetBrains Mono',monospace">Kalkulator:</span>
+          <span class="diy-alt-chip" id="diyAltChip">✓ ${esc(filterLabel)}</span>
+          <button class="diy-filter-reset">✕ Resetuj</button>`;
+        banner.querySelector('#diyAltChip').addEventListener('click', () => {
+          _diySel.altSelected = !_diySel.altSelected;
+          banner.querySelector('#diyAltChip').className = 'diy-alt-chip' + (_diySel.altSelected ? '' : ' chip-off');
+          updateDiySummary();
+        });
         banner.querySelector('.diy-filter-reset').addEventListener('click', () => redrawDiy(null, null));
         dc.appendChild(banner);
       }
 
-      let totalServing = 0, totalPkg = 0, hasPrices = false;
-
-      diy.forEach(item => {
-        const isActive = !activeSet || activeSet.has(normIng(item.ingredient));
-        const ps  = parseFloat((item.estimated_price_per_serving||'').replace(',','.').replace(/[^0-9.]/g,'')) || 0;
-        const pkg = parseFloat((item.estimated_price_package||'').replace(',','.').replace(/[^0-9.]/g,'')) || 0;
-        if (isActive && ps > 0) { totalServing += ps; hasPrices = true; }
-        if (isActive && pkg > 0) totalPkg += pkg;
-
-        const altOpt = item.alternative_option || null;
-
-        const renderDiyPriceRow = (opt) => opt.estimated_price_package && opt.estimated_servings_in_package ? `
+      const renderDiyPriceRow = (opt) => opt.estimated_price_package && opt.estimated_servings_in_package ? `
               <div class="diy-price-row">
                 Opakowanie: <span class="hl">ok. ${esc(opt.estimated_price_package)}</span>
                 &nbsp;·&nbsp; ${esc(String(opt.estimated_servings_in_package))} porcji
@@ -1353,11 +1435,22 @@
               </div>` : opt.estimated_price_per_serving ? `
               <div class="diy-price-row">ok. <span class="hl" style="color:var(--accent)">${esc(opt.estimated_price_per_serving)}</span> / porcja</div>` : '';
 
+      diy.forEach(item => {
+        const key     = normIng(item.ingredient);
+        const isSel   = _diySel.items.has(key);
+        const altOpt  = item.alternative_option || null;
+
         const card = document.createElement('div');
-        card.className = 'diy-card' + (isActive ? '' : ' diy-inactive');
+        card.className = 'diy-card ' + (isSel ? 'diy-sel' : 'diy-unsel');
+        card.addEventListener('click', (e) => {
+          if (e.target.closest('a, button')) return;
+          if (_diySel.items.has(key)) _diySel.items.delete(key);
+          else _diySel.items.add(key);
+          card.className = 'diy-card ' + (_diySel.items.has(key) ? 'diy-sel' : 'diy-unsel');
+          updateDiySummary();
+        });
 
         if (altOpt) {
-          // Two-option card (e.g. vegan + non-vegan)
           card.innerHTML = `
             <div class="diy-body" style="flex:1">
               <div style="display:flex;align-items:center;flex-wrap:wrap">
@@ -1391,48 +1484,7 @@
         dc.appendChild(card);
       });
 
-      if (hasPrices) {
-        const diy30   = totalServing * 30;
-        const orig30  = origPricePerServing ? origPricePerServing * 30 : (origPrice || null);
-        const savePln = orig30 !== null ? Math.round(orig30 - diy30) : null;
-        const savePct = (orig30 && totalServing > 0)
-          ? Math.round((1 - diy30 / orig30) * 100)
-          : null;
-        const covScore = Math.min(Math.max(diyCoverage, 0), 100);
-        const sum = document.createElement('div');
-        sum.className = 'diy-summary';
-        sum.innerHTML = `
-          <div>
-            <div class="diy-sum-label">DIY / porcja</div>
-            <div class="diy-sum-val">ok. ${totalServing.toFixed(2)} PLN</div>
-          </div>
-          <div>
-            <div class="diy-sum-label">DIY / 30 dni</div>
-            <div class="diy-sum-val">ok. ${diy30.toFixed(0)} PLN</div>
-          </div>
-          ${orig30 !== null ? `<div>
-            <div class="diy-sum-label">Oryginał / 30 dni</div>
-            <div class="diy-sum-val" style="opacity:0.5;font-size:20px">ok. ${orig30.toFixed(0)} PLN</div>
-          </div>` : ''}
-          ${totalPkg > 0 ? `<div>
-            <div class="diy-sum-label">Jednorazowy koszt</div>
-            <div class="diy-sum-val" style="font-size:20px">ok. ${totalPkg.toFixed(0)} PLN</div>
-          </div>` : ''}
-          ${savePln !== null ? `<div class="diy-sum-savings">
-            <div class="diy-sum-label">${savePln >= 0 ? 'oszczędzasz / miesiąc' : 'drożej o / miesiąc'}</div>
-            <div class="diy-sum-savings-pct" ${savePln < 0 ? 'style="color:#ef4444"' : ''}>${Math.abs(savePln)} PLN</div>
-          </div>` : ''}
-          ${savePct !== null ? `<div class="diy-savings-badge">
-            <div class="diy-savings-badge-pct" ${savePct < 0 ? 'style="color:#ef4444"' : ''}>${savePct > 0 ? '−' : '+'}${Math.abs(savePct)}%</div>
-            <div class="diy-savings-badge-label">${savePct >= 0 ? 'taniej' : 'drożej'}</div>
-          </div>` : ''}
-          ${covScore > 0 ? `<div class="diy-coverage">
-            <div class="diy-coverage-val" style="color:${scoreColor(covScore).stroke}">${covScore}%</div>
-            <div class="diy-coverage-label">pokrycie<br>składników</div>
-          </div>` : ''}
-          <p class="diy-sum-note" style="width:100%;margin-top:0">* Ceny szacunkowe. Jednorazowy koszt opakowań — taniej z każdym kolejnym miesiącem.</p>`;
-        dc.appendChild(sum);
-      }
+      updateDiySummary();
     }
 
     window.__redrawDiy = redrawDiy;
