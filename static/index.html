@@ -1097,6 +1097,8 @@
     const origPrice = parseFloat((product.price||'').replace(',','.').replace(/[^0-9.]/g,'')) || null;
     const totalServings = parseInt((analysis.total_servings||'').replace(/[^0-9]/g,'')) || null;
     const origPricePerServing = (origPrice && totalServings) ? origPrice / totalServings : null;
+    // Estimated per-serving price with fallback of 30 servings when total_servings unknown
+    const origPpsEst = origPricePerServing || (origPrice ? origPrice / (totalServings || 30) : null);
 
     // Product
     document.getElementById('categoryBadge').textContent = analysis.category || '';
@@ -1222,8 +1224,8 @@
         const score   = parseInt(alt.similarity_score) || 0;
         const sc      = simColor(score);
         const altPps  = parseFloat((alt.estimated_price_per_serving||'').replace(',','.').replace(/[^0-9.]/g,'')) || null;
-        const savePct = (origPricePerServing && altPps)
-          ? Math.round((1 - altPps / origPricePerServing) * 100)
+        const savePct = (origPpsEst && altPps)
+          ? Math.round((1 - altPps / origPpsEst) * 100)
           : null;
         const qScore  = parseInt(alt.quality_score) || 0;
         const qc      = scoreColor(qScore);
@@ -1408,13 +1410,13 @@
     // Coffee CTA — floating, update title after analysis
     const coffeeTitle = document.getElementById('coffeeTitle');
     let bestSavingsText = '';
-    if (origPricePerServing && origPricePerServing > 0) {
+    if (origPpsEst && origPpsEst > 0) {
       let diyTotalServing = 0;
       (alternatives.diy_stack || []).forEach(item => {
         const ps = parseFloat((item.estimated_price_per_serving||'').replace(',','.').replace(/[^0-9.]/g,'')) || 0;
         diyTotalServing += ps;
       });
-      const savingPerServing = diyTotalServing > 0 ? origPricePerServing - diyTotalServing : null;
+      const savingPerServing = diyTotalServing > 0 ? origPpsEst - diyTotalServing : null;
       if (savingPerServing && savingPerServing > 0) {
         bestSavingsText = `ok. ${Math.round(savingPerServing * 30)} PLN`;
       }
