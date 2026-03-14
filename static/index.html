@@ -1348,10 +1348,10 @@
 
       if (hasPrices) {
         const diy30   = totalServing * 30;
-        const orig30  = origPricePerServing ? origPricePerServing * 30 : null;
+        const orig30  = origPricePerServing ? origPricePerServing * 30 : (origPrice || null);
         const savePln = orig30 !== null ? Math.round(orig30 - diy30) : null;
-        const savePct = (origPricePerServing && totalServing > 0)
-          ? Math.round((1 - totalServing / origPricePerServing) * 100)
+        const savePct = (orig30 && totalServing > 0)
+          ? Math.round((1 - diy30 / orig30) * 100)
           : null;
         const covScore = Math.min(Math.max(diyCoverage, 0), 100);
         const sum = document.createElement('div');
