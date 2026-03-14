@@ -1392,6 +1392,14 @@
         </div>` : ''}
         <p class="diy-sum-note" style="width:100%;margin-top:0">* Ceny szacunkowe. Jednorazowy koszt opakowań — taniej z każdym kolejnym miesiącem.</p>`;
       dc.appendChild(sum);
+
+      // Sync coffee CTA title with current savings
+      const coffeeTitle = document.getElementById('coffeeTitle');
+      if (coffeeTitle) {
+        coffeeTitle.innerHTML = (savePln !== null && savePln > 0)
+          ? `Pomogłem Ci zaoszczędzić <strong>ok. ${savePln} PLN</strong> miesięcznie!`
+          : `Jeśli SupSaver był pomocny — postaw kawę!`;
+      }
     }
 
     function redrawDiy(activeSet, filterLabel, altContext = null) {
@@ -1504,26 +1512,6 @@
     // Advice
     document.getElementById('savingsPotential').textContent = alternatives.savings_potential || '';
     document.getElementById('adviceText').textContent       = alternatives.advice || '';
-
-    // Coffee CTA — floating, update title after analysis
-    const coffeeTitle = document.getElementById('coffeeTitle');
-    let bestSavingsText = '';
-    if (origPpsEst && origPpsEst > 0) {
-      let diyTotalServing = 0;
-      (alternatives.diy_stack || []).forEach(item => {
-        const ps = parseFloat((item.estimated_price_per_serving||'').replace(',','.').replace(/[^0-9.]/g,'')) || 0;
-        diyTotalServing += ps;
-      });
-      const savingPerServing = diyTotalServing > 0 ? origPpsEst - diyTotalServing : null;
-      if (savingPerServing && savingPerServing > 0) {
-        bestSavingsText = `ok. ${Math.round(savingPerServing * 30)} PLN`;
-      }
-    }
-    if (coffeeTitle) {
-      coffeeTitle.innerHTML = bestSavingsText
-        ? `Pomogłem Ci zaoszczędzić <strong>${bestSavingsText}</strong> miesięcznie!`
-        : `Jeśli SupSaver był pomocny — postaw kawę!`;
-    }
 
     document.getElementById('resultsWrap').style.display = 'block';
   }
