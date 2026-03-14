@@ -993,6 +993,15 @@
     return searchUrl(query);
   }
 
+  // Sprawdza czy URL z API jest bezpieczny (zapobiega open redirect na javascript: itp.)
+  function safeHref(url) {
+    if (!url) return null;
+    try {
+      const u = new URL(url);
+      return ['https:', 'http:'].includes(u.protocol) ? url : null;
+    } catch { return null; }
+  }
+
   // URL strony głównej sklepu z kodem afiliacyjnym (dla kart "Polecane sklepy").
   function affiliatedStoreUrl(storeName, storeUrl) {
     const text = (storeName || '').toLowerCase();
@@ -1001,7 +1010,7 @@
         return cfg.homeUrl(cfg.code);
       }
     }
-    return storeUrl || searchUrl(storeName + ' sklep');
+    return safeHref(storeUrl) || searchUrl(storeName + ' sklep');
   }
 
   function setLoading(on) {
@@ -1386,6 +1395,8 @@
 
     // Shared selection state
     let _diySel = { items: new Set(), altPps: 0, altSelected: false };
+    // AbortController do czyszczenia event listenerów przy każdym redrawDiy
+    let _diyAbortCtrl = new AbortController();
 
     function updateDiySummary() {
       const oldSum = dc.querySelector('.diy-summary');
@@ -1465,6 +1476,8 @@
     }
 
     function redrawDiy(activeSet, filterLabel, altContext = null) {
+      _diyAbortCtrl.abort();
+      _diyAbortCtrl = new AbortController();
       dc.innerHTML = '';
 
       if (!diy.length) {
@@ -1492,8 +1505,8 @@
           _diySel.altSelected = !_diySel.altSelected;
           banner.querySelector('#diyAltChip').className = 'diy-alt-chip' + (_diySel.altSelected ? '' : ' chip-off');
           updateDiySummary();
-        });
-        banner.querySelector('.diy-filter-reset').addEventListener('click', () => redrawDiy(null, null));
+        }, { signal: _diyAbortCtrl.signal });
+        banner.querySelector('.diy-filter-reset').addEventListener('click', () => redrawDiy(null, null), { signal: _diyAbortCtrl.signal });
         dc.appendChild(banner);
       }
 
@@ -1518,7 +1531,7 @@
           else _diySel.items.add(key);
           card.className = 'diy-card ' + (_diySel.items.has(key) ? 'diy-sel' : 'diy-unsel');
           updateDiySummary();
-        });
+        }, { signal: _diyAbortCtrl.signal });
 
         if (altOpt) {
           card.innerHTML = `
