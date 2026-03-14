@@ -442,8 +442,11 @@
     }
     .diy-sum-label { font-size: 11px; opacity: 0.6; text-transform: uppercase; letter-spacing: 1.5px; font-family: 'JetBrains Mono', monospace; margin-bottom: 4px; }
     .diy-sum-val { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 28px; }
-    .diy-sum-savings { margin-left: auto; text-align: right; }
+    .diy-sum-savings { margin-left: auto; text-align: center; }
     .diy-sum-savings-pct { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 48px; color: #72D856; line-height: 1; }
+    .diy-savings-badge { background: rgba(114,216,86,0.15); border: 2px solid rgba(114,216,86,0.4); border-radius: 16px; padding: 14px 20px; text-align: center; min-width: 120px; }
+    .diy-savings-badge-pct { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 56px; color: #72D856; line-height: 1; }
+    .diy-savings-badge-label { font-size: 10px; text-transform: uppercase; letter-spacing: 1.5px; color: rgba(255,255,255,0.5); font-family: 'JetBrains Mono', monospace; margin-top: 4px; }
     .diy-sum-note { font-size: 11px; opacity: 0.4; margin-top: 8px; }
 
     /* Stores */
@@ -632,11 +635,13 @@
 
     /* ── COFFEE CTA ── */
     .coffee-card {
-      background: linear-gradient(135deg, rgba(114,216,86,0.08) 0%, rgba(4,147,90,0.06) 100%);
-      border: 1px solid rgba(114,216,86,0.35);
-      border-radius: 20px; padding: 24px 28px;
-      margin-bottom: 24px;
-      display: flex; gap: 20px; align-items: flex-start;
+      position: fixed; bottom: 24px; right: 24px; z-index: 999;
+      max-width: 320px; width: calc(100vw - 48px);
+      background: var(--bg-card);
+      border: 1px solid rgba(114,216,86,0.45);
+      border-radius: 20px; padding: 18px 20px;
+      display: flex; gap: 14px; align-items: flex-start;
+      box-shadow: 0 8px 40px rgba(0,0,0,0.35);
     }
     .coffee-left { font-size: 40px; line-height: 1; flex-shrink: 0; }
     .coffee-body { flex: 1; }
@@ -855,14 +860,13 @@
     </div>
 
     <!-- Coffee CTA -->
-    <div class="coffee-card" id="coffeeCard" style="display:none">
+    <div class="coffee-card" id="coffeeCard">
       <div class="coffee-left">☕</div>
       <div class="coffee-body">
-        <div class="coffee-title">Pomogłem Ci zaoszczędzić <span id="coffeeSaving"></span> miesięcznie!</div>
-        <div class="coffee-text">Jeśli SupSaver okazał się pomocny, możesz wesprzeć jego rozwój stawiając kawę.</div>
+        <div class="coffee-title" id="coffeeTitle">Jeśli SupSaver był pomocny — postaw kawę!</div>
         <div class="coffee-actions">
           <a href="https://ko-fi.com/supsaver" target="_blank" class="btn-coffee">☕ Postaw kawę</a>
-          <button class="btn-coffee-skip" onclick="document.getElementById('coffeeCard').style.display='none'">Pomiń</button>
+          <button class="btn-coffee-skip" onclick="this.closest('.coffee-card').style.display='none'">✕</button>
         </div>
       </div>
     </div>
@@ -1086,8 +1090,8 @@
   document.addEventListener('keydown', e => { if (e.key === 'Escape') closeQualityModal(); });
 
   function renderResults({ product, analysis, alternatives, quality }) {
-    // Reset state from previous analysis
-    document.getElementById('coffeeCard').style.display = 'none';
+    // Reset savings hero from previous analysis
+    document.getElementById('savingsHero').style.display = 'none';
 
     // Pre-compute price/serving for use throughout the function
     const origPrice = parseFloat((product.price||'').replace(',','.').replace(/[^0-9.]/g,'')) || null;
@@ -1106,39 +1110,41 @@
         <div class="product-price-value">${esc(product.price)} <span style="font-size:18px;font-weight:400;color:var(--text-muted)">${esc(product.currency||'PLN')}</span></div>
         <div class="product-price-label">cena za opakowanie</div>` : ''}
       ${analysis.total_servings ? `
-        <div style="font-size:13px;color:var(--text-muted);margin-top:8px;font-family:'JetBrains Mono',monospace">${esc(analysis.total_servings)} porcji</div>` : ''}
+        <div style="font-size:13px;color:var(--text-muted);margin-top:8px;font-family:'JetBrains Mono',monospace">${esc(analysis.total_servings)} porcji${analysis.serving_size ? ' · ' + esc(analysis.serving_size) : ''}</div>` : analysis.serving_size ? `
+        <div style="font-size:13px;color:var(--text-muted);margin-top:8px;font-family:'JetBrains Mono',monospace">1 porcja = ${esc(analysis.serving_size)}</div>` : ''}
       ${origPricePerServing ? `
         <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:22px;color:var(--accent);margin-top:4px">ok. ${origPricePerServing.toFixed(2)} PLN</div>
         <div class="product-price-label">cena / porcja</div>` : ''}`;
 
-    // Savings Hero
+    // Savings Hero — DIY vs oryginał dla tej samej liczby porcji
     const heroEl = document.getElementById('savingsHero');
     heroEl.style.display = 'none';
     heroEl.className = '';
     heroEl.innerHTML = '';
     {
-      const altsSortedH = [...(alternatives.cheaper_alternatives || [])]
-        .sort((a,b) => (parseInt(b.similarity_score)||0) - (parseInt(a.similarity_score)||0));
-      const bAlt = altsSortedH[0];
-      if (bAlt) {
-        const bPps   = parseFloat((bAlt.estimated_price_per_serving||'').replace(',','.').replace(/[^0-9.]/g,'')) || null;
-        const sPlnH  = (origPricePerServing && bPps) ? Math.round((origPricePerServing - bPps) * 30) : null;
-        const sPctH  = (origPricePerServing && bPps) ? Math.round((1 - bPps / origPricePerServing) * 100) : null;
-        const simH   = parseInt(bAlt.similarity_score) || 0;
-        let mainText = sPlnH !== null && sPlnH > 0 ? `taniej ok. ${sPlnH} PLN / miesiąc`
-                     : bAlt.estimated_price ? `ok. ${esc(bAlt.estimated_price)}`
-                     : `${simH}% podobny zamiennik`;
-        let subParts = [];
-        if (sPctH !== null && sPctH > 0) subParts.push(`${sPctH}% taniej`);
-        if (simH > 0) subParts.push(`${simH}% podobny do Twojego suplementu`);
+      const nPorcji = totalServings || 30;
+      let diyTotalPps = 0;
+      (alternatives.diy_stack || []).forEach(item => {
+        const ps    = parseFloat((item.estimated_price_per_serving||'').replace(',','.').replace(/[^0-9.]/g,'')) || 0;
+        const altPs = item.alternative_option
+          ? parseFloat((item.alternative_option.estimated_price_per_serving||'').replace(',','.').replace(/[^0-9.]/g,'')) || 0
+          : 0;
+        diyTotalPps += (altPs > 0 && altPs < ps) ? altPs : ps;
+      });
+      if (diyTotalPps > 0) {
+        const diyCostN    = diyTotalPps * nPorcji;
+        const diySavePln  = origPrice ? Math.round(origPrice - diyCostN) : null;
+        const diySavePct  = origPrice ? Math.round((1 - diyCostN / origPrice) * 100) : null;
         heroEl.className = 'savings-hero';
         heroEl.innerHTML = `
           <div>
-            <div class="savings-hero-label">Najlepszy zamiennik</div>
-            <div class="savings-hero-main">${mainText}</div>
-            ${subParts.length ? `<div class="savings-hero-sub">${subParts.join(' · ')}</div>` : ''}
+            <div class="savings-hero-label">DIY Stack / ${nPorcji} porcji</div>
+            <div class="savings-hero-main">ok. ${Math.round(diyCostN)} PLN</div>
+            ${diySavePln !== null
+              ? `<div class="savings-hero-sub">vs oryginał ${origPrice ? origPrice.toFixed(0) + ' PLN' : '—'} · ${diySavePln > 0 ? 'taniej o ' + diySavePln + ' PLN' + (diySavePct ? ' (' + diySavePct + '%)' : '') : 'zbliżona cena'}</div>`
+              : `<div class="savings-hero-sub">za ${nPorcji} porcji · własny stack</div>`}
           </div>
-          <a href="#alternativesList" class="btn-search" style="align-self:center">↓ Zamienniki</a>`;
+          <a href="#diyStack" class="btn-search" style="align-self:center">↓ DIY Stack</a>`;
         heroEl.style.display = 'flex';
       }
     }
@@ -1370,7 +1376,10 @@
           ${savePln !== null ? `<div class="diy-sum-savings">
             <div class="diy-sum-label">${savePln >= 0 ? 'oszczędzasz / miesiąc' : 'drożej o / miesiąc'}</div>
             <div class="diy-sum-savings-pct" ${savePln < 0 ? 'style="color:#ef4444"' : ''}>${Math.abs(savePln)} PLN</div>
-            ${savePct !== null ? `<div class="diy-sum-savings-pct" style="font-size:32px;margin-top:-6px;${savePln < 0 ? 'color:#ef4444' : ''}">${Math.abs(savePct)}%</div>` : ''}
+          </div>` : ''}
+          ${savePct !== null ? `<div class="diy-savings-badge">
+            <div class="diy-savings-badge-pct" ${savePct < 0 ? 'style="color:#ef4444"' : ''}>${savePct > 0 ? '−' : '+'}${Math.abs(savePct)}%</div>
+            <div class="diy-savings-badge-label">${savePct >= 0 ? 'taniej' : 'drożej'}</div>
           </div>` : ''}
           ${covScore > 0 ? `<div class="diy-coverage">
             <div class="diy-coverage-val" style="color:${scoreColor(covScore).stroke}">${covScore}%</div>
@@ -1396,10 +1405,8 @@
     document.getElementById('savingsPotential').textContent = alternatives.savings_potential || '';
     document.getElementById('adviceText').textContent       = alternatives.advice || '';
 
-    // Coffee CTA — zawsze widoczna po analizie
-    const coffeeCard  = document.getElementById('coffeeCard');
-    const coffeeTitle = coffeeCard.querySelector('.coffee-title');
-
+    // Coffee CTA — floating, update title after analysis
+    const coffeeTitle = document.getElementById('coffeeTitle');
     let bestSavingsText = '';
     if (origPricePerServing && origPricePerServing > 0) {
       let diyTotalServing = 0;
@@ -1418,13 +1425,11 @@
         bestSavingsText = `ok. ${Math.round(savingPerServing * 30)} PLN`;
       }
     }
-
-    if (bestSavingsText) {
-      coffeeTitle.innerHTML = `Pomogłem Ci zaoszczędzić <span id="coffeeSaving">${bestSavingsText}</span> miesięcznie!`;
-    } else {
-      coffeeTitle.textContent = `SupSaver przeanalizował Twój suplement i znalazł tańsze opcje!`;
+    if (coffeeTitle) {
+      coffeeTitle.innerHTML = bestSavingsText
+        ? `Pomogłem Ci zaoszczędzić <strong>${bestSavingsText}</strong> miesięcznie!`
+        : `Jeśli SupSaver był pomocny — postaw kawę!`;
     }
-    coffeeCard.style.display = 'flex';
 
     document.getElementById('resultsWrap').style.display = 'block';
   }
