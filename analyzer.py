@@ -60,7 +60,7 @@ Format odpowiedzi:
       "notes": "dodatkowe uwagi lub null"
     }
   ],
-  "total_servings": "liczba porcji w opakowaniu lub null",
+  "total_servings": "liczba porcji w opakowaniu — WYMAGANE gdy możliwe do obliczenia. Przykłady: '60 kapsułek, 2/porcję' → '30'; 'na 30 dni' → '30'; 'Supplement Facts: 30 servings' → '30'. Podaj tylko liczbę jako string (np. '30'), lub null gdy brak danych.",
   "serving_size": "wielkość porcji lub null",
   "key_active_ingredients": ["lista kluczowych składników aktywnych"],
   "summary": "krótkie podsumowanie produktu po polsku (2-3 zdania)",
@@ -91,6 +91,7 @@ def analyze_supplement(product: ProductInfo) -> AnalysisResult:
     message = client.messages.create(
         model="claude-sonnet-4-6",
         max_tokens=2000,
+        temperature=0,
         system=SYSTEM_PROMPT,
         messages=[{"role": "user", "content": user_message}],
     )

@@ -1109,9 +1109,9 @@
       ${product.price ? `
         <div class="product-price-value">${esc(product.price)} <span style="font-size:18px;font-weight:400;color:var(--text-muted)">${esc(product.currency||'PLN')}</span></div>
         <div class="product-price-label">cena za opakowanie</div>` : ''}
-      ${analysis.total_servings ? `
-        <div style="font-size:13px;color:var(--text-muted);margin-top:8px;font-family:'JetBrains Mono',monospace">${esc(analysis.total_servings)} porcji${analysis.serving_size ? ' · ' + esc(analysis.serving_size) : ''}</div>` : analysis.serving_size ? `
-        <div style="font-size:13px;color:var(--text-muted);margin-top:8px;font-family:'JetBrains Mono',monospace">1 porcja = ${esc(analysis.serving_size)}</div>` : ''}
+      ${analysis.serving_size ? `
+        <div style="font-size:13px;color:var(--text-muted);margin-top:8px;font-family:'JetBrains Mono',monospace">1 porcja = ${esc(analysis.serving_size)}${analysis.total_servings ? ' · ' + esc(analysis.total_servings) + ' porcji' : ''}</div>` : analysis.total_servings ? `
+        <div style="font-size:13px;color:var(--text-muted);margin-top:8px;font-family:'JetBrains Mono',monospace">${esc(analysis.total_servings)} porcji</div>` : ''}
       ${origPricePerServing ? `
         <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:22px;color:var(--accent);margin-top:4px">ok. ${origPricePerServing.toFixed(2)} PLN</div>
         <div class="product-price-label">cena / porcja</div>` : ''}`;
