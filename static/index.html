@@ -942,6 +942,68 @@
     return `https://www.google.com/search?q=${encodeURIComponent(q + ' suplement')}`;
   }
 
+  // ===== AFFILIATE CONFIG =====
+  // Wpisz swoje kody poniżej. Puste string = brak linku afiliacyjnego (fallback do Google).
+  // Jak zdobyć kody: iherb.com/info/affiliates | affiliate-program.amazon.com
+  //   allegro: program.allegro.pl/affiliate | myprotein: awin.com | gymbeam: awin.com
+  //   sfd/kfd/olimp: ich własne programy partnerskie
+  const AFFILIATES = {
+    iherb:        { code: '', match: ['iherb'],
+                    homeUrl:   c => `https://www.iherb.com${c ? '/?rcode='+c : ''}`,
+                    searchUrl: (q,c) => `https://www.iherb.com/search?kw=${encodeURIComponent(q)}${c ? '&rcode='+c : ''}` },
+    amazon:       { code: '', match: ['amazon'],
+                    homeUrl:   c => `https://www.amazon.pl${c ? '/?tag='+c : ''}`,
+                    searchUrl: (q,c) => `https://www.amazon.pl/s?k=${encodeURIComponent(q)}${c ? '&tag='+c : ''}` },
+    allegro:      { code: '', match: ['allegro'],
+                    // Allegro: kod to publisher_id z TradeDoubler — dopisz do URL ręcznie po rejestracji
+                    homeUrl:   c => `https://allegro.pl`,
+                    searchUrl: (q,c) => `https://allegro.pl/listing?string=${encodeURIComponent(q)}` },
+    myprotein:    { code: '', match: ['myprotein'],
+                    homeUrl:   c => `https://www.myprotein.com`,
+                    searchUrl: (q,c) => `https://www.myprotein.com/sports-nutrition/search/?searchTerm=${encodeURIComponent(q)}` },
+    olimpstore:   { code: '', match: ['olimp store', 'olimp-store', 'olimp'],
+                    homeUrl:   c => `https://olimp-store.pl`,
+                    searchUrl: (q,c) => `https://olimp-store.pl/szukaj?q=${encodeURIComponent(q)}` },
+    sfd:          { code: '', match: ['sfd'],
+                    homeUrl:   c => `https://sklep.sfd.pl`,
+                    searchUrl: (q,c) => `https://sklep.sfd.pl/szukaj?q=${encodeURIComponent(q)}` },
+    kfd:          { code: '', match: ['kfd'],
+                    homeUrl:   c => `https://kfd.pl`,
+                    searchUrl: (q,c) => `https://kfd.pl/szukaj?s=${encodeURIComponent(q)}` },
+    gymbeam:      { code: '', match: ['gymbeam'],
+                    homeUrl:   c => `https://gymbeam.pl`,
+                    searchUrl: (q,c) => `https://gymbeam.pl/catalogsearch/result/?q=${encodeURIComponent(q)}` },
+    bodybuilding: { code: '', match: ['bodybuilding'],
+                    homeUrl:   c => `https://www.bodybuilding.com`,
+                    searchUrl: (q,c) => `https://www.bodybuilding.com/store/search?query=${encodeURIComponent(q)}` },
+    gnc:          { code: '', match: ['gnc'],
+                    homeUrl:   c => `https://www.gnc.com`,
+                    searchUrl: (q,c) => `https://www.gnc.com/search?q=${encodeURIComponent(q)}` },
+  };
+
+  // Buduje URL wyszukiwania — jeśli hint lub query zawiera nazwę sklepu z kodem, używa
+  // bezpośredniego affiliate search URL; w przeciwnym razie fallback do Google.
+  function affiliatedSearchUrl(query, hint) {
+    const text = ((hint || '') + ' ' + (query || '')).toLowerCase();
+    for (const cfg of Object.values(AFFILIATES)) {
+      if (cfg.match.some(m => text.includes(m))) {
+        return cfg.searchUrl(query, cfg.code);
+      }
+    }
+    return searchUrl(query);
+  }
+
+  // URL strony głównej sklepu z kodem afiliacyjnym (dla kart "Polecane sklepy").
+  function affiliatedStoreUrl(storeName, storeUrl) {
+    const text = (storeName || '').toLowerCase();
+    for (const cfg of Object.values(AFFILIATES)) {
+      if (cfg.match.some(m => text.includes(m))) {
+        return cfg.homeUrl(cfg.code);
+      }
+    }
+    return storeUrl || searchUrl(storeName + ' sklep');
+  }
+
   function setLoading(on) {
     document.getElementById('analyzeBtn').disabled = on;
     document.getElementById('btnIcon').textContent = on ? '…' : '→';
@@ -1168,7 +1230,7 @@
     kc.innerHTML = '';
     (analysis.key_active_ingredients || []).forEach(i => {
       const a = document.createElement('a');
-      a.href = searchUrl(i + ' kup'); a.target = '_blank';
+      a.href = affiliatedSearchUrl(i + ' kup', i); a.target = '_blank';
       a.className = 'chip'; a.textContent = i;
       kc.appendChild(a);
     });
@@ -1282,7 +1344,7 @@
               ${altPps ? `<div style="font-size:12px;color:var(--text-muted);font-family:'JetBrains Mono',monospace;margin-top:2px">ok. ${altPps.toFixed(2)} PLN / porcja</div>` : ''}
               ${saveBadge}
               <br>
-              <a href="${searchUrl(alt.search_query)}" target="_blank" class="btn-search">🔍 Szukaj</a>
+              <a href="${affiliatedSearchUrl(alt.search_query, (alt.stores||[]).join(' '))}" target="_blank" class="btn-search">🔍 Szukaj</a>
               ${diy.length > 0 ? `<button class="btn-diy-filter">↳ Uzupełnij DIY o braki</button>` : ''}
             </div>
           </div>
@@ -1468,13 +1530,13 @@
               <div class="diy-opt">
                 <div class="diy-opt-label">${esc(item.notes || 'Opcja 1')}</div>
                 ${renderDiyPriceRow(item)}
-                <a href="${searchUrl(item.search_query)}" target="_blank" class="btn-search" style="margin-top:6px;display:inline-flex">🔍 Szukaj</a>
+                <a href="${affiliatedSearchUrl(item.search_query, item.search_query)}" target="_blank" class="btn-search" style="margin-top:6px;display:inline-flex">🔍 Szukaj</a>
               </div>
               <div class="diy-opt-divider">— lub —</div>
               <div class="diy-opt">
                 <div class="diy-opt-label diy-opt-nonvegan">${esc(altOpt.notes || 'Opcja 2')}</div>
                 ${renderDiyPriceRow(altOpt)}
-                <a href="${searchUrl(altOpt.search_query)}" target="_blank" class="btn-search" style="margin-top:6px;display:inline-flex">🔍 Szukaj</a>
+                <a href="${affiliatedSearchUrl(altOpt.search_query, altOpt.search_query)}" target="_blank" class="btn-search" style="margin-top:6px;display:inline-flex">🔍 Szukaj</a>
               </div>
             </div>`;
         } else {
@@ -1487,7 +1549,7 @@
               ${item.notes ? `<div class="diy-note">${esc(item.notes)}</div>` : ''}
               ${renderDiyPriceRow(item)}
             </div>
-            <a href="${searchUrl(item.search_query)}" target="_blank" class="btn-search" style="align-self:center">🔍 Szukaj</a>`;
+            <a href="${affiliatedSearchUrl(item.search_query, item.search_query)}" target="_blank" class="btn-search" style="align-self:center">🔍 Szukaj</a>`;
         }
         dc.appendChild(card);
       });
@@ -1503,7 +1565,7 @@
     sc2.innerHTML = '';
     (alternatives.recommended_stores || []).forEach(s => {
       const a = document.createElement('a');
-      a.href = s.url || searchUrl(s.name + ' sklep');
+      a.href = affiliatedStoreUrl(s.name, s.url);
       a.target = '_blank'; a.className = 'store-card';
       a.innerHTML = `<div class="store-name">${esc(s.name)}</div>${s.notes ? `<div class="store-note">${esc(s.notes)}</div>` : ''}`;
       sc2.appendChild(a);
