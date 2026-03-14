@@ -1114,8 +1114,8 @@
       ${analysis.serving_size ? `
         <div style="font-size:13px;color:var(--text-muted);margin-top:8px;font-family:'JetBrains Mono',monospace">1 porcja = ${esc(analysis.serving_size)}${analysis.total_servings ? ' · ' + esc(analysis.total_servings) + ' porcji' : ''}</div>` : analysis.total_servings ? `
         <div style="font-size:13px;color:var(--text-muted);margin-top:8px;font-family:'JetBrains Mono',monospace">${esc(analysis.total_servings)} porcji</div>` : ''}
-      ${origPricePerServing ? `
-        <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:22px;color:var(--accent);margin-top:4px">ok. ${origPricePerServing.toFixed(2)} PLN</div>
+      ${origPpsEst ? `
+        <div style="font-family:'Syne',sans-serif;font-weight:700;font-size:22px;color:var(--accent);margin-top:4px">ok. ${origPpsEst.toFixed(2)} PLN</div>
         <div class="product-price-label">cena / porcja</div>` : ''}`;
 
     // Savings Hero — DIY vs oryginał dla tej samej liczby porcji
